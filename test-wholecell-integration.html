@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wholecell Integration Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">Wholecell Integration Test</h1>
+        
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">Test Results</h2>
+                <div id="testResults" class="space-y-2 text-sm">
+                    <p>Running tests...</p>
+                </div>
+            </div>
+            
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">Actions</h2>
+                <div class="space-y-3">
+                    <button onclick="runTests()" class="w-full bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                        Run Tests
+                    </button>
+                    <button onclick="testFetch()" class="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                        Test Fetch (First Page)
+                    </button>
+                    <button onclick="testTransform()" class="w-full bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+                        Test Transform
+                    </button>
+                    <button onclick="clearTests()" class="w-full bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                        Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h2 class="text-xl font-semibold mb-4">Console Output</h2>
+            <pre id="consoleOutput" class="bg-gray-900 text-green-400 p-4 rounded text-xs overflow-auto max-h-96"></pre>
+        </div>
+    </div>
+
+    <script src="wholecell-api.js"></script>
+    <script src="wholecell-transformer.js"></script>
+    
+    <script>
+        let api = new WholecellAPI();
+        
+        function log(message, type = 'info') {
+            const output = document.getElementById('consoleOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : '📋';
+            output.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+            console.log(message);
+        }
+        
+        function updateResult(message, success = true) {
+            const results = document.getElementById('testResults');
+            const icon = success ? '✅' : '❌';
+            results.innerHTML += `<p>${icon} ${message}</p>`;
+        }
+        
+        function clearTests() {
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('consoleOutput').textContent = '';
+        }
+        
+        async function runTests() {
+            clearTests();
+            log('Starting Wholecell Integration Tests...');
+            
+            // Test 1: Health Check
+            log('Test 1: Checking proxy health...');
+            try {
+                const healthy = await api.checkHealth();
+                if (healthy) {
+                    updateResult('Proxy server is healthy', true);
+                    log('✅ Proxy health check passed', 'success');
+                } else {
+                    updateResult('Proxy server not responding', false);
+                    log('❌ Proxy health check failed', 'error');
+                    return;
+                }
+            } catch (error) {
+                updateResult('Proxy connection error', false);
+                log(`❌ Error: ${error.message}`, 'error');
+                return;
+            }
+            
+            // Test 2: Fetch First Page
+            log('Test 2: Fetching first page...');
+            try {
+                const response = await fetch('http://localhost:5001/api/inventory?page=1');
+                const data = await response.json();
+                
+                if (data && data.data && data.data.length > 0) {
+                    updateResult(`Fetched ${data.data.length} items (Page 1 of ${data.pages})`, true);
+                    log(`✅ Fetched ${data.data.length} items from page 1 of ${data.pages}`, 'success');
+                } else {
+                    updateResult('Failed to fetch data', false);
+                    log('❌ No data received', 'error');
+                }
+            } catch (error) {
+                updateResult('Fetch error', false);
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+            
+            // Test 3: Transform Data
+            log('Test 3: Testing data transformation...');
+            try {
+                const response = await fetch('http://localhost:5001/api/inventory?page=1');
+                const data = await response.json();
+                
+                if (data && data.data && data.data.length > 0) {
+                    const transformed = WholecellTransformer.transformAll(data.data);
+                    const stats = WholecellTransformer.getTransformStats(data.data, transformed);
+                    
+                    updateResult(`Transformed ${stats.valid} items (${stats.successRate}% success)`, true);
+                    log(`✅ Transform stats: ${JSON.stringify(stats)}`, 'success');
+                    
+                    // Show sample transformed item
+                    if (transformed[0]) {
+                        log(`Sample item: ${JSON.stringify(transformed[0], null, 2)}`);
+                    }
+                }
+            } catch (error) {
+                updateResult('Transform error', false);
+                log(`❌ Error: ${error.message}`, 'error');
+            }
+            
+            log('Tests complete!', 'success');
+        }
+        
+        async function testFetch() {
+            clearTests();
+            log('Fetching first page of inventory...');
+            
+            try {
+                const response = await fetch('http://localhost:5001/api/inventory?page=1');
+                const data = await response.json();
+                
+                log(`Total Pages: ${data.pages}`);
+                log(`Items in Page 1: ${data.data.length}`);
+                log(`Total Items: ~${data.pages * data.data.length}`);
+                log('\nSample Item:');
+                log(JSON.stringify(data.data[0], null, 2));
+                
+                updateResult(`Successfully fetched ${data.data.length} items`, true);
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+                updateResult('Fetch failed', false);
+            }
+        }
+        
+        async function testTransform() {
+            clearTests();
+            log('Testing transformation...');
+            
+            try {
+                const response = await fetch('http://localhost:5001/api/inventory?page=1');
+                const data = await response.json();
+                
+                const original = data.data[0];
+                const transformed = WholecellTransformer.transformItem(original);
+                
+                log('Original Wholecell Item:');
+                log(JSON.stringify(original, null, 2));
+                log('\nTransformed Item:');
+                log(JSON.stringify(transformed, null, 2));
+                
+                updateResult('Transformation successful', true);
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+                updateResult('Transform failed', false);
+            }
+        }
+        
+        // Auto-run tests on load
+        window.addEventListener('DOMContentLoaded', () => {
+            log('Test page loaded. Click "Run Tests" to begin.');
+        });
+    </script>
+</body>
+</html>
+

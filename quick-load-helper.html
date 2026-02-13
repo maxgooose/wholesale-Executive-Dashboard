@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Load Helper - Check Your Options</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .option-card {
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .option-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-available { background: #10b981; color: white; }
+        .status-checking { background: #f59e0b; color: white; }
+        .status-unavailable { background: #ef4444; color: white; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-4xl font-bold text-gray-800 mb-2">⚡ Quick Load Helper</h1>
+        <p class="text-gray-600 mb-8">Choose the fastest way to load your data</p>
+
+        <!-- Status Summary -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+            <h2 class="text-xl font-bold mb-4">📊 Loading Options Status</h2>
+            <div id="statusSummary" class="space-y-2">
+                <div class="flex items-center justify-between py-2 border-b">
+                    <span class="font-medium">Incremental Sync Cache</span>
+                    <span id="incrementalStatus" class="status-badge status-checking">Checking...</span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b">
+                    <span class="font-medium">Old Cache System</span>
+                    <span id="oldCacheStatus" class="status-badge status-checking">Checking...</span>
+                </div>
+                <div class="flex items-center justify-between py-2 border-b">
+                    <span class="font-medium">Preloaded JSON File</span>
+                    <span id="jsonStatus" class="status-badge status-checking">Checking...</span>
+                </div>
+                <div class="flex items-center justify-between py-2">
+                    <span class="font-medium">WholeCell API Proxy</span>
+                    <span id="proxyStatus" class="status-badge status-checking">Checking...</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recommended Option -->
+        <div id="recommendedOption" class="bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg shadow-xl p-8 mb-8 hidden">
+            <div class="flex items-center gap-3 mb-4">
+                <span class="text-4xl">🎯</span>
+                <h2 class="text-2xl font-bold">Recommended: <span id="recommendedName"></span></h2>
+            </div>
+            <p id="recommendedReason" class="text-lg mb-4 text-green-50"></p>
+            <button onclick="useRecommended()" class="bg-white text-green-600 px-8 py-3 rounded-lg font-bold hover:bg-green-50 transition">
+                Load Data Now
+            </button>
+        </div>
+
+        <!-- Loading Options -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- Option 1: Incremental Sync -->
+            <div class="option-card bg-white rounded-lg shadow-lg p-6">
+                <div class="text-4xl mb-4">⚡</div>
+                <h3 class="text-xl font-bold mb-2">Incremental Sync</h3>
+                <div id="incrementalInfo" class="mb-4">
+                    <p class="text-sm text-gray-600 mb-2">Checking cache...</p>
+                </div>
+                <button onclick="useIncrementalSync()" class="w-full bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition font-semibold">
+                    Use This
+                </button>
+            </div>
+
+            <!-- Option 2: Preloaded Data -->
+            <div class="option-card bg-white rounded-lg shadow-lg p-6">
+                <div class="text-4xl mb-4">📦</div>
+                <h3 class="text-xl font-bold mb-2">Preloaded Data</h3>
+                <div id="jsonInfo" class="mb-4">
+                    <p class="text-sm text-gray-600 mb-2">Checking file...</p>
+                </div>
+                <button onclick="usePreloadedData()" class="w-full bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition font-semibold">
+                    Use This
+                </button>
+            </div>
+
+            <!-- Option 3: Fresh API Load -->
+            <div class="option-card bg-white rounded-lg shadow-lg p-6">
+                <div class="text-4xl mb-4">🔄</div>
+                <h3 class="text-xl font-bold mb-2">Fresh API Load</h3>
+                <div class="mb-4">
+                    <p class="text-sm text-gray-600 mb-2">⏱️ Takes ~18 minutes</p>
+                    <p class="text-xs text-gray-500">Fetches all 2,167 pages from API</p>
+                    <p class="text-xs text-green-600 mt-2">✓ Builds cache for future</p>
+                </div>
+                <button onclick="useFullLoad()" class="w-full bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600 transition font-semibold">
+                    Use This
+                </button>
+            </div>
+        </div>
+
+        <!-- Progress Area -->
+        <div id="progressArea" class="mt-8 bg-white rounded-lg shadow-lg p-6 hidden">
+            <h3 class="text-xl font-bold mb-4">Loading Progress</h3>
+            <div id="progressInfo" class="space-y-2"></div>
+            <div class="mt-4">
+                <div class="bg-gray-200 rounded-full h-4">
+                    <div id="progressBar" class="bg-blue-500 h-4 rounded-full transition-all" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include necessary scripts -->
+    <script src="wholecell-api.js"></script>
+    <script src="wholecell-cache.js"></script>
+    <script src="wholecell-incremental-sync.js"></script>
+
+    <script>
+        let recommendedOption = null;
+
+        async function checkAllOptions() {
+            console.log('🔍 Checking all loading options...');
+
+            // Check Incremental Sync Cache
+            try {
+                const incrementalSync = new WholecellIncrementalSync();
+                const stats = await incrementalSync.getCacheStats();
+                
+                if (stats.exists && stats.itemCount > 0) {
+                    document.getElementById('incrementalStatus').textContent = `✓ Available (${stats.itemCount.toLocaleString()} items)`;
+                    document.getElementById('incrementalStatus').className = 'status-badge status-available';
+                    
+                    document.getElementById('incrementalInfo').innerHTML = `
+                        <p class="text-sm text-green-600 font-semibold mb-1">✓ Cache Available</p>
+                        <p class="text-xs text-gray-600">${stats.itemCount.toLocaleString()} items</p>
+                        <p class="text-xs text-gray-600">${stats.ageMinutes} min ago</p>
+                        <p class="text-xs text-green-600 mt-2">⚡ Loads in < 1 second</p>
+                    `;
+                    
+                    if (!recommendedOption) {
+                        recommendedOption = 'incremental';
+                    }
+                } else {
+                    throw new Error('No cache');
+                }
+            } catch (error) {
+                document.getElementById('incrementalStatus').textContent = '✗ Not Available';
+                document.getElementById('incrementalStatus').className = 'status-badge status-unavailable';
+                document.getElementById('incrementalInfo').innerHTML = `
+                    <p class="text-sm text-gray-600 mb-1">No cache yet</p>
+                    <p class="text-xs text-gray-500">First load: ~18 min</p>
+                    <p class="text-xs text-gray-500">Future loads: instant</p>
+                `;
+            }
+
+            // Check Old Cache System
+            try {
+                const oldCache = new WholecellCache();
+                const stats = await oldCache.getCacheStats();
+                
+                if (stats.exists && stats.itemCount > 0) {
+                    document.getElementById('oldCacheStatus').textContent = `✓ Available (${stats.itemCount.toLocaleString()} items)`;
+                    document.getElementById('oldCacheStatus').className = 'status-badge status-available';
+                } else {
+                    throw new Error('No cache');
+                }
+            } catch (error) {
+                document.getElementById('oldCacheStatus').textContent = '✗ Not Available';
+                document.getElementById('oldCacheStatus').className = 'status-badge status-unavailable';
+            }
+
+            // Check Preloaded JSON
+            try {
+                const response = await fetch('data/combined_details.json', { method: 'HEAD' });
+                if (response.ok) {
+                    document.getElementById('jsonStatus').textContent = '✓ Available';
+                    document.getElementById('jsonStatus').className = 'status-badge status-available';
+                    
+                    // Fetch a bit to check size
+                    const jsonResponse = await fetch('data/combined_details.json');
+                    const data = await jsonResponse.json();
+                    
+                    document.getElementById('jsonInfo').innerHTML = `
+                        <p class="text-sm text-green-600 font-semibold mb-1">✓ File Found</p>
+                        <p class="text-xs text-gray-600">${data.length.toLocaleString()} items</p>
+                        <p class="text-xs text-gray-600">Size: ${(JSON.stringify(data).length / 1024 / 1024).toFixed(1)} MB</p>
+                        <p class="text-xs text-green-600 mt-2">⚡ Loads instantly</p>
+                    `;
+                    
+                    if (!recommendedOption) {
+                        recommendedOption = 'preloaded';
+                    }
+                } else {
+                    throw new Error('File not found');
+                }
+            } catch (error) {
+                document.getElementById('jsonStatus').textContent = '✗ Not Found';
+                document.getElementById('jsonStatus').className = 'status-badge status-unavailable';
+                document.getElementById('jsonInfo').innerHTML = `
+                    <p class="text-sm text-gray-600 mb-1">File not found</p>
+                    <p class="text-xs text-gray-500">No preloaded data</p>
+                `;
+            }
+
+            // Check WholeCell Proxy
+            try {
+                const api = new WholecellAPI();
+                const isHealthy = await api.checkHealth();
+                
+                if (isHealthy) {
+                    document.getElementById('proxyStatus').textContent = '✓ Online';
+                    document.getElementById('proxyStatus').className = 'status-badge status-available';
+                } else {
+                    throw new Error('Proxy offline');
+                }
+            } catch (error) {
+                document.getElementById('proxyStatus').textContent = '✗ Offline';
+                document.getElementById('proxyStatus').className = 'status-badge status-unavailable';
+            }
+
+            // Show recommendation
+            showRecommendation();
+        }
+
+        function showRecommendation() {
+            const recDiv = document.getElementById('recommendedOption');
+            const nameSpan = document.getElementById('recommendedName');
+            const reasonP = document.getElementById('recommendedReason');
+
+            if (recommendedOption === 'incremental') {
+                nameSpan.textContent = 'Incremental Sync';
+                reasonP.textContent = 'You have a cached copy! This will load in less than 1 second and auto-update in the background.';
+                recDiv.classList.remove('hidden');
+            } else if (recommendedOption === 'preloaded') {
+                nameSpan.textContent = 'Preloaded Data';
+                reasonP.textContent = 'No cache found, but preloaded data is available. Loads instantly but may be slightly outdated.';
+                recDiv.classList.remove('hidden');
+            } else {
+                // No cache or preload - don't show recommendation for slow option
+                recDiv.classList.add('hidden');
+            }
+        }
+
+        function useRecommended() {
+            if (recommendedOption === 'incremental') {
+                useIncrementalSync();
+            } else if (recommendedOption === 'preloaded') {
+                usePreloadedData();
+            }
+        }
+
+        function useIncrementalSync() {
+            window.location.href = 'data-manager.html?source=incremental';
+        }
+
+        function usePreloadedData() {
+            window.location.href = 'data-manager.html?source=preloaded';
+        }
+
+        function useFullLoad() {
+            if (confirm('This will take ~18 minutes. Are you sure? (This builds cache for instant future loads)')) {
+                window.location.href = 'data-manager.html?source=full&force=true';
+            }
+        }
+
+        // Run checks on load
+        window.addEventListener('DOMContentLoaded', checkAllOptions);
+    </script>
+</body>
+</html>
+

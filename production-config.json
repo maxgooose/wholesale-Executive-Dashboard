@@ -1,0 +1,56 @@
+{
+  "proxy": {
+    "port": 5001,
+    "host": "0.0.0.0",
+    "debug": false,
+    "logLevel": "INFO",
+    "cors": {
+      "enabled": true,
+      "origins": ["*"]
+    }
+  },
+  "wholecell": {
+    "apiBase": "https://api.wholecell.io/api/v1/inventories",
+    "timeout": 30,
+    "retryAttempts": 3,
+    "retryDelay": 2000
+  },
+  "caching": {
+    "enabled": true,
+    "duration": 900000,
+    "maxSize": 1000
+  },
+  "sync": {
+    "autoRefresh": true,
+    "intervalMinutes": 15,
+    "pauseWhenHidden": true
+  },
+  "changeDetection": {
+    "enabled": true,
+    "trackHistory": true,
+    "maxHistorySize": 100
+  },
+  "notifications": {
+    "enabled": true,
+    "showChangeNotifications": true,
+    "duration": 3000
+  },
+  "errorRecovery": {
+    "enabled": true,
+    "maxRetries": 3,
+    "retryDelay": 2000
+  },
+  "performance": {
+    "batchSize": 5,
+    "batchDelay": 100,
+    "maxConcurrentRequests": 10
+  },
+  "logging": {
+    "enabled": true,
+    "level": "INFO",
+    "console": true,
+    "file": false,
+    "maxLogSize": 50
+  }
+}
+

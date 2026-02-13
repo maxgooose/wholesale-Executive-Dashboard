@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#fafafa">
+    <title>Universal - AI Assistant</title>
+    
+    <!-- Theme Switcher (load first to prevent flash) -->
+    <script src="scripts/theme-switcher.js"></script>
+    
+    <!-- Design System -->
+    <link rel="stylesheet" href="styles/theme.css">
+    
+    <!-- Markdown Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <style>
+        /* Chat-specific styles */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .page-wrapper {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-left: 1px solid var(--border-subtle);
+            border-right: 1px solid var(--border-subtle);
+            box-shadow: 0 0 40px -10px rgba(0,0,0,0.1);
+        }
+
+        /* Messages Area */
+        .messages-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-6);
+            background: transparent;
+        }
+
+        .message {
+            margin-bottom: var(--space-4);
+            display: flex;
+            flex-direction: column;
+            animation: messageIn 0.3s ease-out;
+        }
+
+        @keyframes messageIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            align-items: flex-end;
+        }
+
+        .message.assistant {
+            align-items: flex-start;
+        }
+
+        .message-bubble {
+            max-width: 75%;
+            padding: var(--space-4);
+            border-radius: var(--radius-xl);
+            word-wrap: break-word;
+            line-height: 1.6;
+            position: relative;
+        }
+
+        .message.user .message-bubble {
+            background: var(--accent);
+            color: white;
+            border-bottom-right-radius: var(--radius-sm);
+        }
+
+        .message.assistant .message-bubble {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-subtle);
+            border-bottom-left-radius: var(--radius-sm);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .message-time {
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+            margin-top: var(--space-1);
+            padding: 0 var(--space-2);
+        }
+
+        /* Markdown styles in messages */
+        .message-bubble strong {
+            font-weight: 600;
+        }
+
+        .message-bubble ul,
+        .message-bubble ol {
+            padding-left: var(--space-5);
+            margin: var(--space-2) 0;
+        }
+
+        .message-bubble li {
+            margin: var(--space-1) 0;
+        }
+
+        .message-bubble p {
+            margin: var(--space-2) 0;
+        }
+
+        .message-bubble p:first-child {
+            margin-top: 0;
+        }
+
+        .message-bubble p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-bubble code {
+            font-family: var(--font-mono);
+            font-size: 0.9em;
+            padding: 2px 6px;
+            border-radius: var(--radius-sm);
+            background: var(--bg-secondary);
+        }
+
+        .message.user .message-bubble code {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .message-bubble pre {
+            background: var(--bg-secondary);
+            padding: var(--space-3);
+            border-radius: var(--radius-md);
+            overflow-x: auto;
+            margin: var(--space-3) 0;
+        }
+
+        .message-bubble pre code {
+            background: none;
+            padding: 0;
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: var(--space-4);
+        }
+
+        .typing-bubble {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            padding: var(--space-4);
+            border-radius: var(--radius-xl);
+            border-bottom-left-radius: var(--radius-sm);
+            display: flex;
+            gap: 6px;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--text-muted);
+            border-radius: 50%;
+            animation: typingBounce 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(1) { animation-delay: 0s; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typingBounce {
+            0%, 60%, 100% {
+                transform: translateY(0);
+            }
+            30% {
+                transform: translateY(-8px);
+            }
+        }
+
+        /* Copy Button */
+        .copy-btn {
+            position: absolute;
+            top: var(--space-2);
+            right: var(--space-2);
+            padding: var(--space-1) var(--space-2);
+            font-size: var(--text-xs);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            cursor: pointer;
+            opacity: 0;
+            transition: all var(--transition-fast);
+        }
+
+        .message.assistant:hover .copy-btn {
+            opacity: 1;
+        }
+
+        .copy-btn:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        /* Quick Actions */
+        .quick-actions {
+            padding: var(--space-3) var(--space-6);
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-2);
+            align-items: center;
+        }
+
+        .quick-btn {
+            padding: var(--space-2) var(--space-4);
+            font-size: var(--text-sm);
+            font-weight: 500;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-full);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            white-space: nowrap;
+        }
+
+        .quick-btn:hover {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        .quick-actions-divider {
+            width: 1px;
+            height: 24px;
+            background: var(--border-subtle);
+            margin: 0 var(--space-2);
+        }
+
+        .clear-btn {
+            padding: var(--space-2) var(--space-4);
+            font-size: var(--text-sm);
+            font-weight: 500;
+            background: transparent;
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-full);
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .clear-btn:hover {
+            background: var(--negative-subtle);
+            color: var(--negative);
+            border-color: var(--negative);
+        }
+
+        /* Input Area */
+        .input-area {
+            padding: var(--space-4) var(--space-6);
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .input-wrapper {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-default);
+            border-radius: var(--radius-xl);
+            padding: var(--space-3) var(--space-4);
+            transition: all var(--transition-fast);
+        }
+
+        .input-wrapper:focus-within {
+            border-color: var(--accent);
+            background: var(--bg-card);
+            box-shadow: 0 0 0 3px var(--accent-subtle);
+        }
+
+        .input-wrapper input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            font-size: var(--text-base);
+            color: var(--text-primary);
+            outline: none;
+        }
+
+        .input-wrapper input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .send-btn {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: var(--radius-lg);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+
+        .send-btn:hover {
+            background: var(--accent-hover);
+            transform: scale(1.05);
+        }
+
+        .send-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Settings Drawer */
+        .settings-drawer {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-left: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-xl);
+            z-index: var(--z-modal);
+            transition: right var(--transition-slow);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .settings-drawer.active {
+            right: 0;
+        }
+
+        .settings-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--space-6);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .settings-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: var(--space-6);
+        }
+
+        .settings-section {
+            margin-bottom: var(--space-6);
+        }
+
+        .settings-label {
+            display: block;
+            font-size: var(--text-sm);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--space-2);
+        }
+
+        .settings-hint {
+            font-size: var(--text-xs);
+            color: var(--text-tertiary);
+            margin-top: var(--space-1);
+        }
+
+        .settings-select,
+        .settings-input {
+            width: 100%;
+            padding: var(--space-3);
+            font-size: var(--text-sm);
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            transition: all var(--transition-fast);
+        }
+
+        .settings-select:focus,
+        .settings-input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-subtle);
+        }
+
+        .settings-link {
+            display: inline-block;
+            margin-top: var(--space-2);
+            font-size: var(--text-xs);
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        .settings-link:hover {
+            text-decoration: underline;
+        }
+
+        .settings-footer {
+            padding: var(--space-4) var(--space-6);
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--space-3);
+        }
+
+        /* Overlay */
+        .drawer-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: calc(var(--z-modal) - 1);
+            opacity: 0;
+            visibility: hidden;
+            transition: all var(--transition-base);
+        }
+
+        .drawer-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Welcome Message */
+        .welcome-message {
+            text-align: center;
+            padding: var(--space-8) var(--space-4);
+        }
+
+        .welcome-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto var(--space-4);
+            background: var(--accent-subtle);
+            border-radius: var(--radius-xl);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+        }
+
+        .welcome-title {
+            font-family: var(--font-display);
+            font-size: var(--text-2xl);
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--space-2);
+        }
+
+        .welcome-subtitle {
+            font-size: var(--text-base);
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-animate-wrapper">
+        <div class="bg-blob blob-1"></div>
+        <div class="bg-blob blob-2"></div>
+        <div class="bg-blob blob-3"></div>
+    </div>
+
+    <div class="page-wrapper">
+        <!-- Header -->
+        <header class="header no-print">
+            <div class="header-inner">
+                <div class="header-brand">
+                    <div class="header-logo">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="header-title">Universal</div>
+                        <div class="header-subtitle">AI Assistant</div>
+                    </div>
+                </div>
+
+                <nav class="header-nav">
+                    <a href="dashboard_standalone.html" class="nav-link">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        Dashboard
+                    </a>
+                    <a href="data-manager.html" class="nav-link">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                        </svg>
+                        Data Manager
+                    </a>
+                    <a href="pricing-manager.html" class="nav-link">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Pricing
+                    </a>
+                    <a href="ai-chat.html" class="nav-link active">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                        </svg>
+                        Assistant
+                    </a>
+                </nav>
+
+                <div class="header-actions">
+                    <button class="theme-toggle" onclick="themeToggle()" title="Toggle theme">
+                        <svg class="icon-sun" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        </svg>
+                        <svg class="icon-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                        </svg>
+                    </button>
+
+                    <button class="btn btn-secondary" onclick="openSettings()">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        </svg>
+                        Settings
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Chat Container -->
+        <div class="chat-container">
+            <!-- Messages -->
+            <div class="messages-area" id="messages">
+                <div class="welcome-message">
+                    <div class="welcome-icon">
+                        <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                        </svg>
+                    </div>
+                    <h2 class="welcome-title">Welcome to Universal AI</h2>
+                    <p class="welcome-subtitle">Ask me anything about your inventory</p>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="quick-actions">
+                <button class="quick-btn" onclick="sendQuickMessage('Show inventory summary')">
+                    Inventory Summary
+                </button>
+                <button class="quick-btn" onclick="sendQuickMessage('What models should we liquidate?')">
+                    Liquidation Tips
+                </button>
+                <button class="quick-btn" onclick="sendQuickMessage('Show grade distribution')">
+                    Grade Analysis
+                </button>
+                <button class="quick-btn" onclick="sendQuickMessage('Show availability rates')">
+                    Availability
+                </button>
+                <div class="quick-actions-divider"></div>
+                <button class="clear-btn" onclick="clearChat()">
+                    Clear Chat
+                </button>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <input 
+                        type="text" 
+                        id="messageInput" 
+                        placeholder="Ask about your inventory..." 
+                        onkeypress="handleKeyPress(event)"
+                        autocomplete="off"
+                    >
+                    <button class="send-btn" onclick="sendMessage()" title="Send message">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Drawer Overlay -->
+        <div class="drawer-overlay" id="drawerOverlay" onclick="closeSettings()"></div>
+
+        <!-- Settings Drawer -->
+        <div class="settings-drawer" id="settingsDrawer">
+            <div class="settings-header">
+                <h3 class="text-display font-semibold">AI Configuration</h3>
+                <button class="btn btn-ghost" onclick="closeSettings()">
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="settings-body">
+                <div class="settings-section">
+                    <label class="settings-label">AI Provider</label>
+                    <select id="aiProvider" class="settings-select" onchange="updateModelOptions()">
+                        <option value="demo">Demo Mode (No API Key)</option>
+                        <option value="gemini" selected>Google Gemini (Free)</option>
+                        <option value="anthropic">Anthropic Claude</option>
+                        <option value="openai">OpenAI GPT-4</option>
+                    </select>
+                    <p class="settings-hint">Gemini 2.0 Flash is fast and free for most use cases</p>
+                </div>
+
+                <div class="settings-section" id="modelSelection">
+                    <label class="settings-label">Model</label>
+                    <select id="aiModel" class="settings-select">
+                        <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Free)</option>
+                    </select>
+                </div>
+
+                <div class="settings-section" id="apiKeyField">
+                    <label class="settings-label">API Key</label>
+                    <input 
+                        type="password" 
+                        id="apiKey" 
+                        class="settings-input" 
+                        placeholder="Enter your API key"
+                    >
+                    <p class="settings-hint">Your key is stored locally, never sent to our servers</p>
+                    <div id="apiKeyLinks">
+                        <a href="https://makersuite.google.com/app/apikey" target="_blank" class="settings-link">
+                            Get Free Gemini API Key →
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-footer">
+                <button class="btn btn-secondary" onclick="closeSettings()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="combined_details.preloaded.js"></script>
+    <script src="gemini-assistant.js"></script>
+    <script src="ai-assistant.js"></script>
+
+    <script>
+        let inventoryData = [];
+        let conversationHistory = [];
+
+        // Load inventory data
+        async function loadInventory() {
+            try {
+                const response = await fetch('data/combined_details.json');
+                inventoryData = await response.json();
+                
+                if (window.aiAssistant) {
+                    window.aiAssistant.setInventoryData(inventoryData);
+                }
+                
+                console.log(`Loaded ${inventoryData.length} inventory items`);
+            } catch (error) {
+                console.log('Using preloaded data or demo mode');
+                if (window.__PRELOADED_INVENTORY__) {
+                    inventoryData = window.__PRELOADED_INVENTORY__;
+                    if (window.aiAssistant) {
+                        window.aiAssistant.setInventoryData(inventoryData);
+                    }
+                }
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            if (!message) return;
+            
+            // Clear welcome message on first send
+            const welcome = document.querySelector('.welcome-message');
+            if (welcome) welcome.remove();
+            
+            addMessage(message, 'user');
+            input.value = '';
+            
+            showTyping();
+            
+            try {
+                const response = await window.aiAssistant.query(message);
+                hideTyping();
+                addMessage(response, 'assistant');
+            } catch (error) {
+                hideTyping();
+                addMessage(`I encountered an error: ${error.message}. Please check your API settings.`, 'assistant');
+            }
+        }
+
+        function addMessage(content, sender) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            const bubbleDiv = document.createElement('div');
+            bubbleDiv.className = 'message-bubble';
+            
+            if (sender === 'assistant') {
+                bubbleDiv.innerHTML = marked.parse(content);
+                
+                // Add copy button
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-btn';
+                copyBtn.textContent = 'Copy';
+                copyBtn.onclick = () => copyMessage(content, copyBtn);
+                bubbleDiv.appendChild(copyBtn);
+            } else {
+                bubbleDiv.textContent = content;
+            }
+            
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'message-time';
+            timeDiv.textContent = new Date().toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            messageDiv.appendChild(bubbleDiv);
+            messageDiv.appendChild(timeDiv);
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            
+            conversationHistory.push({ role: sender, content });
+        }
+
+        function showTyping() {
+            const messagesDiv = document.getElementById('messages');
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typingIndicator';
+            typingDiv.className = 'typing-indicator';
+            typingDiv.innerHTML = `
+                <div class="typing-bubble">
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
+            `;
+            messagesDiv.appendChild(typingDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function hideTyping() {
+            const typing = document.getElementById('typingIndicator');
+            if (typing) typing.remove();
+        }
+
+        function sendQuickMessage(message) {
+            document.getElementById('messageInput').value = message;
+            sendMessage();
+        }
+
+        function clearChat() {
+            if (confirm('Clear all chat history?')) {
+                const messagesDiv = document.getElementById('messages');
+                messagesDiv.innerHTML = `
+                    <div class="welcome-message">
+                        <div class="welcome-icon">
+                            <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                            </svg>
+                        </div>
+                        <h2 class="welcome-title">Welcome to Universal AI</h2>
+                        <p class="welcome-subtitle">Ask me anything about your inventory</p>
+                    </div>
+                `;
+                conversationHistory = [];
+                if (window.aiAssistant) window.aiAssistant.clearHistory();
+                if (window.geminiAssistant) window.geminiAssistant.clearHistory();
+            }
+        }
+
+        function copyMessage(content, button) {
+            navigator.clipboard.writeText(content).then(() => {
+                const original = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.background = 'var(--positive)';
+                button.style.borderColor = 'var(--positive)';
+                button.style.color = 'white';
+                
+                setTimeout(() => {
+                    button.textContent = original;
+                    button.style.background = '';
+                    button.style.borderColor = '';
+                    button.style.color = '';
+                }, 2000);
+            });
+        }
+
+        // Settings
+        function openSettings() {
+            document.getElementById('settingsDrawer').classList.add('active');
+            document.getElementById('drawerOverlay').classList.add('active');
+            loadSettingsIntoForm();
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsDrawer').classList.remove('active');
+            document.getElementById('drawerOverlay').classList.remove('active');
+        }
+
+        function toggleSettings() {
+            const drawer = document.getElementById('settingsDrawer');
+            if (drawer.classList.contains('active')) {
+                closeSettings();
+            } else {
+                openSettings();
+            }
+        }
+
+        function loadSettingsIntoForm() {
+            if (window.aiAssistant) {
+                document.getElementById('aiProvider').value = window.aiAssistant.provider || 'gemini';
+                document.getElementById('apiKey').value = window.aiAssistant.apiKey || '';
+                document.getElementById('aiModel').value = window.aiAssistant.model || 'gemini-2.0-flash-exp';
+                updateModelOptions();
+            }
+        }
+
+        function saveSettings() {
+            const provider = document.getElementById('aiProvider').value;
+            const apiKey = document.getElementById('apiKey').value;
+            const model = document.getElementById('aiModel').value;
+            
+            if (window.aiAssistant) {
+                window.aiAssistant.saveSettings(provider, apiKey, model);
+            }
+            
+            closeSettings();
+            
+            // Show confirmation
+            addMessage(`Settings saved. Provider: ${provider}, Model: ${model}`, 'assistant');
+        }
+
+        function updateModelOptions() {
+            const provider = document.getElementById('aiProvider').value;
+            const modelSelect = document.getElementById('aiModel');
+            const apiKeyField = document.getElementById('apiKeyField');
+            const modelSelection = document.getElementById('modelSelection');
+            const apiKeyLinks = document.getElementById('apiKeyLinks');
+            
+            if (provider === 'demo') {
+                apiKeyField.style.display = 'none';
+                modelSelection.style.display = 'none';
+                return;
+            }
+            
+            apiKeyField.style.display = 'block';
+            modelSelection.style.display = 'block';
+            
+            modelSelect.innerHTML = '';
+            
+            const models = {
+                openai: [
+                    { value: 'gpt-4-turbo-preview', label: 'GPT-4 Turbo' },
+                    { value: 'gpt-4', label: 'GPT-4' },
+                    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+                ],
+                anthropic: [
+                    { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
+                    { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' },
+                    { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' }
+                ],
+                gemini: [
+                    { value: 'gemini-2.0-flash-exp', label: 'Gemini 2.0 Flash (Free)' },
+                    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+                    { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' }
+                ]
+            };
+
+            const links = {
+                openai: 'https://platform.openai.com/api-keys',
+                anthropic: 'https://console.anthropic.com/',
+                gemini: 'https://makersuite.google.com/app/apikey'
+            };
+
+            const providerModels = models[provider] || [];
+            providerModels.forEach(m => {
+                const option = document.createElement('option');
+                option.value = m.value;
+                option.textContent = m.label;
+                modelSelect.appendChild(option);
+            });
+
+            apiKeyLinks.innerHTML = `
+                <a href="${links[provider]}" target="_blank" class="settings-link">
+                    Get ${provider.charAt(0).toUpperCase() + provider.slice(1)} API Key →
+                </a>
+            `;
+        }
+
+        // Initialize
+        window.onload = function() {
+            loadInventory();
+            updateModelOptions();
+            
+            // Prompt user to configure AI if no settings exist
+            if (!localStorage.getItem('aiSettings') && window.aiAssistant) {
+                console.log('No AI settings found. Please configure your API key in AI Settings.');
+            }
+        };
+    </script>
+</body>
+</html>

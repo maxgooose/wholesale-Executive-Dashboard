@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#fafafa">
+    <title>Universal - Executive Dashboard</title>
+    
+    <!-- Theme Switcher (load first to prevent flash) -->
+    <script src="scripts/theme-switcher.js"></script>
+    
+    <!-- Design System -->
+    <link rel="stylesheet" href="styles/theme.css">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        /* Hero Section */
+        .hero-section {
+            margin-bottom: var(--space-8);
+            animation: slideDown 0.6s ease-out;
+        }
+
+        .hero-glass {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-subtle);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-xl);
+            padding: var(--space-4) var(--space-6);
+            display: flex;
+            align-items: center;
+            gap: var(--space-8);
+            box-shadow: 0 4px 24px -1px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated Greeting */
+        .greeting-wrapper {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .greeting-line {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: rollout 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
+
+        .greeting-line.delayed {
+            animation-delay: 0.8s;
+        }
+
+        @keyframes rollout {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hero-greeting {
+            min-width: 240px;
+            border-right: 1px solid var(--border-subtle);
+            padding-right: var(--space-6);
+            position: relative;
+            z-index: 2;
+        }
+
+        .hero-greeting h2 {
+            font-size: var(--text-xl);
+            margin-bottom: 2px;
+            line-height: 1.2;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, var(--text-primary), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-pulse-wrapper {
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+            mask-image: linear-gradient(90deg, transparent, black 5%, black 95%, transparent);
+            -webkit-mask-image: linear-gradient(90deg, transparent, black 5%, black 95%, transparent);
+        }
+
+        .hero-pulse-track {
+            display: flex;
+            gap: var(--space-8);
+            animation: marquee 30s linear infinite;
+            white-space: nowrap;
+        }
+
+        .hero-pulse-track:hover {
+            animation-play-state: paused;
+        }
+
+        .pulse-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            color: var(--text-secondary);
+            font-size: var(--text-sm);
+        }
+
+        .pulse-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-secondary);
+            color: var(--accent);
+        }
+
+        .pulse-value {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @media (max-width: 768px) {
+            .hero-glass {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: var(--space-4);
+            }
+            
+            .hero-greeting {
+                border-right: none;
+                border-bottom: 1px solid var(--border-subtle);
+                padding-right: 0;
+                padding-bottom: var(--space-4);
+                width: 100%;
+            }
+            
+            .hero-pulse-wrapper {
+                width: 100%;
+            }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--space-4);
+            margin-bottom: var(--space-8);
+        }
+
+        @media (max-width: 1024px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 640px) {
+            .stats-grid { grid-template-columns: 1fr; }
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: var(--space-6);
+            margin-bottom: var(--space-6);
+        }
+
+        @media (max-width: 1024px) {
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+
+        .chart-card {
+            /* Inherits from .card in theme.css, specialized overrides here if needed */
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-title {
+            font-family: var(--font-display);
+            font-size: var(--text-base);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--space-4);
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+
+        .chart-title svg {
+            width: 18px;
+            height: 18px;
+            color: var(--text-tertiary);
+        }
+
+        .chart-wrapper {
+            height: 280px;
+            position: relative;
+        }
+
+        /* Attention Section */
+        .attention-section {
+            margin-bottom: var(--space-6);
+        }
+
+        .attention-header {
+            display: flex;
+            align-items: center;
+            gap: var(--space-3);
+            margin-bottom: var(--space-4);
+        }
+
+        .attention-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--negative-subtle);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--negative);
+        }
+
+        .attention-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: var(--space-4);
+        }
+
+        @media (max-width: 1024px) {
+            .attention-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 640px) {
+            .attention-grid { grid-template-columns: 1fr; }
+        }
+
+        .attention-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: var(--space-4);
+            border-left: 4px solid var(--border-strong);
+            transition: all var(--transition-fast);
+        }
+
+        .attention-item:hover {
+            transform: translateX(4px);
+        }
+
+        .attention-item.critical { border-left-color: var(--negative); }
+        .attention-item.warning { border-left-color: var(--warning); }
+        .attention-item.info { border-left-color: var(--info); }
+        .attention-item.processing { border-left-color: var(--accent); }
+
+        .attention-item-title {
+            font-weight: 600;
+            font-size: var(--text-sm);
+            color: var(--text-primary);
+            margin-bottom: var(--space-1);
+        }
+
+        .attention-item-value {
+            font-family: var(--font-mono);
+            font-size: var(--text-2xl);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--space-1);
+        }
+
+        .attention-item-desc {
+            font-size: var(--text-xs);
+            color: var(--text-tertiary);
+            font-style: italic;
+        }
+
+        /* Stations Chart Section */
+        .stations-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-xl);
+            padding: var(--space-6);
+        }
+
+        .stations-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: var(--space-4);
+        }
+
+        .stations-chart-wrapper {
+            height: 220px;
+        }
+
+        /* Last updated footer */
+        .footer-info {
+            margin-top: var(--space-8);
+            padding-top: var(--space-4);
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: var(--text-xs);
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="bg-animate-wrapper">
+        <div class="bg-blob blob-1"></div>
+        <div class="bg-blob blob-2"></div>
+        <div class="bg-blob blob-3"></div>
+    </div>
+
+    <div class="page-wrapper">
+        <!-- Header -->
+        <header class="header no-print">
+            <div class="header-inner">
+                <div class="header-brand">
+                    <div class="header-logo">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="header-title">Universal</div>
+                        <div class="header-subtitle">Executive Dashboard</div>
+                    </div>
+                </div>
+
+                <nav class="header-nav">
+                    <a href="dashboard_standalone.html" class="nav-link active">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        Dashboard
+                    </a>
+                    <a href="data-manager.html" class="nav-link">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                        </svg>
+                        Data Manager
+                    </a>
+                    <a href="pricing-manager.html" class="nav-link">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Pricing
+                    </a>
+                    <a href="ai-chat.html" class="nav-link">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+                        </svg>
+                        Assistant
+                    </a>
+                </nav>
+
+                <div class="header-actions">
+                    <div class="sync-indicator" id="syncStatus">
+                        <span class="status-dot online"></span>
+                        <span>Live</span>
+                    </div>
+                    
+                    <button class="theme-toggle" onclick="themeToggle()" title="Toggle theme">
+                        <svg class="icon-sun" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                        </svg>
+                        <svg class="icon-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                        </svg>
+                    </button>
+
+                    <select id="locationFilter" class="btn btn-secondary" style="cursor:pointer;padding:8px 12px;font-size:13px;border-radius:8px;" onchange="onLocationFilterChange()">
+                        <option value="all">All Locations</option>
+                    </select>
+
+                    <button class="btn btn-primary" onclick="refreshData()">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Refresh
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="container">
+                <!-- Hero Section: Executive Pulse -->
+                <section class="hero-section no-print">
+                    <div class="hero-glass">
+                        <div class="hero-greeting">
+                            <div class="greeting-wrapper">
+                                <h2 class="greeting-line">Good Morning,</h2>
+                                <h2 class="greeting-line delayed gradient-text">Yossi</h2>
+                            </div>
+                        </div>
+                        
+                        <div class="hero-pulse-wrapper">
+                            <div class="hero-pulse-track" id="pulseTrack">
+                                <!-- Items will be duplicated for seamless loop -->
+                                <div class="pulse-item">
+                                    <div class="pulse-icon">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                                    </div>
+                                    <span>System Status: <span class="pulse-value text-positive js-hero-status">Operational</span></span>
+                                </div>
+                                <div class="pulse-item">
+                                    <div class="pulse-icon">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    </div>
+                                    <span>Est. Value: <span class="pulse-value js-hero-value">Loading...</span></span>
+                                </div>
+                                <div class="pulse-item">
+                                    <div class="pulse-icon">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                                    </div>
+                                    <span>New Inventory: <span class="pulse-value text-accent js-hero-new-inventory">Loading...</span></span>
+                                </div>
+                                <div class="pulse-item">
+                                    <div class="pulse-icon">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    </div>
+                                    <span>Processing: <span class="pulse-value text-warning js-hero-processing">Loading...</span></span>
+                                </div>
+                                <div class="pulse-item">
+                                    <div class="pulse-icon">
+                                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    </div>
+                                    <span>Avg Turnaround: <span class="pulse-value js-hero-avg-turnaround">Loading...</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Active Inventory</div>
+                        <div class="stat-value" id="totalItems">0</div>
+                        <div class="stat-meta">Lifetime: <span id="lifetimeCount">0</span> units</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-label">Available Units</div>
+                        <div class="stat-value positive" id="availableUnits">0</div>
+                        <div class="stat-meta"><span id="availablePercent">0</span>% ready to ship</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-label">Processing</div>
+                        <div class="stat-value warning" id="processingUnits">0</div>
+                        <div class="stat-meta">At <span id="stationCount">19</span> stations</div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-label">Est. Value</div>
+                        <div class="stat-value accent" id="estValue">$0</div>
+                        <div class="stat-meta">Avg: <span id="avgValue">$0</span>/unit</div>
+                    </div>
+                </div>
+
+                <!-- Charts Row 1 -->
+                <div class="charts-grid">
+                    <div class="card chart-card">
+                        <div class="chart-title">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"/>
+                            </svg>
+                            Brand Distribution
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="brandChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card chart-card">
+                        <div class="chart-title">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                            </svg>
+                            Grade Distribution
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="gradeChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row 2 -->
+                <div class="charts-grid">
+                    <div class="card chart-card">
+                        <div class="chart-title">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            Inventory Aging (Days in Stock)
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="agingChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card chart-card">
+                        <div class="chart-title">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                            Battery Health Distribution
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="batteryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row 3 (Models & Storage) -->
+                <div class="charts-grid">
+                    <div class="card chart-card">
+                        <div class="chart-title">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                            </svg>
+                            Top 10 Models by Volume
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="topModelsChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="card chart-card">
+                        <div class="chart-title">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                            </svg>
+                            Storage Capacity Distribution
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="storageChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attention Items REMOVED -->
+
+                <!-- Processing Stations -->
+                <section class="stations-section">
+                    <div class="stations-header">
+                        <div class="chart-title">
+                            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                            </svg>
+                            Processing Stations Workload
+                        </div>
+                    </div>
+                    <div class="stations-chart-wrapper">
+                        <canvas id="stationsChart"></canvas>
+                    </div>
+                </section>
+
+                <!-- Footer Info -->
+                <footer class="footer-info no-print">
+                    <div id="lastUpdated">Last updated: --</div>
+                    <div>Universal Executive Dashboard v2.0</div>
+                </footer>
+            </div>
+        </main>
+    </div>
+
+    <!-- Data & Scripts -->
+    <script src="wholecell-transformer.js"></script>
+    <script src="combined_details.preloaded.js"></script>
+    <script>
+        let inventoryData = [];
+        let allInventoryData = []; // unfiltered copy
+        let charts = {};
+
+        // Chart.js theme configuration
+        function getChartColors() {
+            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+            const colors = isDark ? {
+                primary: '#38bdf8',
+                secondary: '#a78bfa',
+                positive: '#34d399',
+                warning: '#fbbf24',
+                negative: '#f87171',
+                accent: '#f472b6',
+                text: '#f1f5f9',
+                textMuted: '#94a3b8',
+                grid: 'rgba(255, 255, 255, 0.05)',
+                border: 'rgba(255, 255, 255, 0.1)',
+                shadow: 'rgba(0, 0, 0, 0.5)'
+            } : {
+                primary: '#0ea5e9',
+                secondary: '#8b5cf6',
+                positive: '#10b981',
+                warning: '#f59e0b',
+                negative: '#ef4444',
+                accent: '#ec4899',
+                text: '#0f172a',
+                textMuted: '#64748b',
+                grid: 'rgba(0, 0, 0, 0.05)',
+                border: 'rgba(0, 0, 0, 0.1)',
+                shadow: 'rgba(0, 0, 0, 0.1)'
+            };
+            return { ...colors, isDark };
+        }
+
+        function getChartDefaults() {
+            const colors = getChartColors();
+            Chart.defaults.color = colors.textMuted;
+            Chart.defaults.borderColor = colors.border;
+            
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: colors.text,
+                            font: { family: "'IBM Plex Mono', monospace", size: 11, weight: '500' },
+                            padding: 20,
+                            usePointStyle: true,
+                            pointStyle: 'circle',
+                            boxWidth: 8
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: colors.isDark ? 'rgba(23, 23, 23, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                        titleColor: colors.text,
+                        bodyColor: colors.textMuted,
+                        borderColor: colors.border,
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 8,
+                        displayColors: true,
+                        boxPadding: 6
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: colors.textMuted, font: { size: 11 } },
+                        grid: { color: colors.grid, drawBorder: false }
+                    },
+                    y: {
+                        ticks: { color: colors.textMuted, font: { size: 11 } },
+                        grid: { color: colors.grid, drawBorder: false },
+                        beginAtZero: true
+                    }
+                },
+                elements: {
+                    bar: {
+                        borderRadius: 8,
+                        borderSkipped: false
+                    },
+                    arc: {
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }
+                }
+            };
+        }
+
+        async function loadData() {
+            try {
+                // Priority 1: Load from local available-inventory.json snapshot (15K+ items)
+                try {
+                    const response = await fetch('data/available-inventory.json');
+                    if (response.ok) {
+                        const rawData = await response.json();
+                        if (rawData.data && Array.isArray(rawData.data) && rawData.data.length > 0) {
+                            const transformedItems = WholecellTransformer.transformAll(rawData.data);
+                            allInventoryData = transformedItems;
+                            inventoryData = transformedItems;
+                            document.getElementById('lastUpdated').textContent = `Data Source: Wholecell Snapshot (${rawData.count || rawData.data.length} items)`;
+                            populateLocationFilter();
+                            updateDashboard();
+                            return;
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Could not load local snapshot, trying backup...', e);
+                }
+
+                // Priority 2: Try the WholeCell backup in assets
+                try {
+                    const response = await fetch('assets/wholecell-data-backup-2025-11-24.json');
+                    if (response.ok) {
+                        const rawData = await response.json();
+                        const transformedItems = WholecellTransformer.transformAll(rawData.items);
+                        allInventoryData = transformedItems;
+                        inventoryData = transformedItems;
+                        if (rawData.metadata && rawData.metadata.timestamp) {
+                            const date = new Date(rawData.metadata.timestamp);
+                            document.getElementById('lastUpdated').textContent = `Data Source: WholeCell Export (${date.toLocaleString()})`;
+                        }
+                        populateLocationFilter();
+                        updateDashboard();
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('Could not load WholeCell backup, falling back to preloaded/combined data', e);
+                }
+
+                // Priority 3: Fallback to existing data sources
+                if (Array.isArray(window.__PRELOADED_INVENTORY__)) {
+                    allInventoryData = window.__PRELOADED_INVENTORY__;
+                    inventoryData = window.__PRELOADED_INVENTORY__;
+                } else {
+                    const response = await fetch('combined_details.json');
+                    const data = await response.json();
+                    allInventoryData = data;
+                    inventoryData = data;
+                }
+                populateLocationFilter();
+                updateDashboard();
+                updateLastUpdated();
+            } catch (error) {
+                console.error('Error loading data:', error);
+                allInventoryData = [];
+                inventoryData = [];
+                updateDashboard();
+            }
+        }
+
+        // Populate the location filter dropdown
+        function populateLocationFilter() {
+            const select = document.getElementById('locationFilter');
+            if (!select) return;
+
+            const locationCounts = {};
+            allInventoryData.forEach(item => {
+                const loc = item.location || 'No Location';
+                locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+            });
+
+            const sorted = Object.entries(locationCounts).sort((a, b) => b[1] - a[1]);
+            const current = select.value;
+            select.innerHTML = '';
+
+            const allOpt = document.createElement('option');
+            allOpt.value = 'all';
+            allOpt.textContent = `All Locations (${allInventoryData.length})`;
+            select.appendChild(allOpt);
+
+            sorted.forEach(([loc, count]) => {
+                const opt = document.createElement('option');
+                opt.value = loc;
+                opt.textContent = `${loc} (${count})`;
+                select.appendChild(opt);
+            });
+
+            if (current && current !== 'all') {
+                select.value = sorted.some(([l]) => l === current) ? current : 'all';
+            }
+        }
+
+        // Handle location filter change
+        function onLocationFilterChange() {
+            const select = document.getElementById('locationFilter');
+            const loc = select ? select.value : 'all';
+
+            if (loc === 'all') {
+                inventoryData = allInventoryData;
+            } else {
+                inventoryData = allInventoryData.filter(item => (item.location || 'No Location') === loc);
+            }
+
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            updateKeyMetrics();
+            updateCharts();
+        }
+
+        function updateKeyMetrics() {
+            const totalItems = inventoryData.length;
+            
+            // Calculate Real Value (Sum of cost)
+            // Note: We use 'cost' which comes from 'total_price_paid' in the transformer
+            const totalValue = inventoryData.reduce((sum, item) => sum + (item.cost || 0), 0);
+            
+            const uniqueModels = new Set(inventoryData.map(item => item.MODEL)).size;
+            
+            // Status Counts
+            const availableUnits = inventoryData.filter(item => (item.STATUS || '').toUpperCase() === 'AVAILABLE').length;
+            // Processing is anything not Sold and not Available
+            const processingUnits = inventoryData.filter(item => {
+                const s = (item.STATUS || '').toUpperCase();
+                return s !== 'SOLD' && s !== 'AVAILABLE';
+            }).length;
+            
+            // NEW: Active Inventory Calculation
+            const activeInventoryCount = availableUnits + processingUnits;
+
+            const availablePercent = totalItems > 0 ? ((availableUnits / totalItems) * 100).toFixed(1) : 0;
+
+            // Update Stats Grid
+            document.getElementById('totalItems').textContent = activeInventoryCount.toLocaleString();
+            document.getElementById('lifetimeCount').textContent = totalItems.toLocaleString();
+            document.getElementById('availableUnits').textContent = availableUnits.toLocaleString();
+            document.getElementById('availablePercent').textContent = availablePercent;
+            document.getElementById('processingUnits').textContent = processingUnits.toLocaleString();
+            
+            // Update Value with Real Money (or $0 if costs aren't tracked)
+            document.getElementById('estValue').textContent = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(totalValue);
+            
+            // Calculate Avg Value
+            const avgVal = totalItems > 0 ? totalValue / totalItems : 0;
+            document.getElementById('avgValue').textContent = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(avgVal);
+
+            // Update Hero Pulse
+            // Use totalValue if available, otherwise calculate based on a default to show *something* if costs are missing
+            const displayValue = totalValue > 0 ? totalValue : (totalItems * 150); 
+            
+            // Helper to update all instances of a class (because marquee clones nodes)
+            const updateAll = (selector, text, className) => {
+                document.querySelectorAll(selector).forEach(el => {
+                    el.textContent = text;
+                    if (className) el.className = className;
+                });
+            };
+
+            updateAll('.js-hero-value', new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: "compact" }).format(displayValue));
+            updateAll('.js-hero-processing', processingUnits.toLocaleString() + ' Units');
+
+            // Update Status
+            const statusText = inventoryData.length > 0 ? 'Operational' : 'No Data';
+            const statusClass = inventoryData.length > 0 ? 'pulse-value text-positive js-hero-status' : 'pulse-value text-negative js-hero-status';
+            updateAll('.js-hero-status', statusText, statusClass);
+
+            // Calculate New Inventory (Created in last 24 hours)
+            const now = new Date();
+            const oneDayAgo = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+            const newInventoryCount = inventoryData.filter(item => {
+                if (!item.created_at) return false;
+                const created = new Date(item.created_at);
+                return created >= oneDayAgo;
+            }).length;
+            updateAll('.js-hero-new-inventory', `+${newInventoryCount} Units`);
+
+            // Calculate Avg Turnaround (for SOLD items)
+            let totalTurnaroundDays = 0;
+            let soldItemsCount = 0;
+            inventoryData.forEach(item => {
+                if ((item.STATUS || '').toUpperCase() === 'SOLD' && item.created_at && item.lastUpdated) {
+                    const created = new Date(item.created_at);
+                    const sold = new Date(item.lastUpdated);
+                    const diffTime = Math.abs(sold - created);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                    if (diffDays >= 0) {
+                         totalTurnaroundDays += diffDays;
+                         soldItemsCount++;
+                    }
+                }
+            });
+            const avgTurnaround = soldItemsCount > 0 ? (totalTurnaroundDays / soldItemsCount).toFixed(1) : "0.0";
+            updateAll('.js-hero-avg-turnaround', `${avgTurnaround} Days`);
+            
+            // Initialize Marquee (Duplicate content for seamless loop)
+            initMarquee();
+        }
+
+        let marqueeInitialized = false;
+        function initMarquee() {
+            if (marqueeInitialized) return;
+            const track = document.getElementById('pulseTrack');
+            if (track) {
+                // Clone children to ensure there's enough content for the loop
+                const items = Array.from(track.children);
+                items.forEach(item => {
+                    const clone = item.cloneNode(true);
+                    track.appendChild(clone);
+                });
+                // Double it again to be safe for wide screens
+                items.forEach(item => {
+                    const clone = item.cloneNode(true);
+                    track.appendChild(clone);
+                });
+                marqueeInitialized = true;
+            }
+        }
+
+        function updateCharts() {
+            createBrandChart();
+            createGradeChart();
+            createAgingChart();
+            createBatteryChart();
+            createTopModelsChart();
+            createStorageChart();
+            createStationsChart();
+        }
+
+        function createAgingChart() {
+            const colors = getChartColors();
+            const agingBuckets = {
+                '0-30 Days': 0,
+                '31-60 Days': 0,
+                '61-90 Days': 0,
+                '90+ Days': 0
+            };
+            
+            const now = new Date();
+            
+            inventoryData.forEach(item => {
+                // Only count unsold inventory for aging
+                const status = (item.STATUS || '').toUpperCase();
+                if (status === 'SOLD' || status === 'SHIPPED') return;
+                
+                if (item.created_at) {
+                    const created = new Date(item.created_at);
+                    const days = Math.floor((now - created) / (1000 * 60 * 60 * 24));
+                    
+                    if (days <= 30) agingBuckets['0-30 Days']++;
+                    else if (days <= 60) agingBuckets['31-60 Days']++;
+                    else if (days <= 90) agingBuckets['61-90 Days']++;
+                    else agingBuckets['90+ Days']++;
+                }
+            });
+
+            if (charts.agingChart) charts.agingChart.destroy();
+            charts.agingChart = new Chart(document.getElementById('agingChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(agingBuckets),
+                    datasets: [{
+                        label: 'Units',
+                        data: Object.values(agingBuckets),
+                        backgroundColor: [colors.positive, colors.primary, colors.warning, colors.negative],
+                        borderRadius: 6,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    ...getChartDefaults(),
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function createBatteryChart() {
+            const colors = getChartColors();
+            const buckets = {
+                '100%': 0,
+                '90-99%': 0,
+                '80-89%': 0,
+                '<80%': 0,
+                'Service': 0
+            };
+
+            inventoryData.forEach(item => {
+                // Check both custom fields and dedicated column if exists
+                let health = item['BATTERY HEALTH'] || item.custom_field_values?.['Battery Health'];
+                
+                if (health) {
+                    health = String(health).trim();
+                    
+                    if (health.toLowerCase().includes('service')) {
+                        buckets['Service']++;
+                    } else {
+                        const pct = parseInt(health.replace('%', ''));
+                        if (!isNaN(pct)) {
+                            if (pct === 100) buckets['100%']++;
+                            else if (pct >= 90) buckets['90-99%']++;
+                            else if (pct >= 80) buckets['80-89%']++;
+                            else buckets['<80%']++;
+                        }
+                    }
+                }
+            });
+
+            if (charts.batteryChart) charts.batteryChart.destroy();
+            charts.batteryChart = new Chart(document.getElementById('batteryChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(buckets),
+                    datasets: [{
+                        data: Object.values(buckets),
+                        backgroundColor: [colors.positive, colors.primary, colors.secondary, colors.warning, colors.negative],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: colors.text,
+                                font: { family: "'IBM Plex Mono', monospace", size: 11 },
+                                padding: 16,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createBrandChart() {
+            const colors = getChartColors();
+            const brandData = {};
+            inventoryData.forEach(item => {
+                // Use the manufacturer field directly instead of pattern matching
+                let brand = (item.manufacturer || '').trim().toUpperCase();
+                if (!brand || brand === 'UNKNOWN') {
+                    brand = 'OTHER';
+                }
+                // Normalize brand name for display (Title Case)
+                brand = brand.charAt(0).toUpperCase() + brand.slice(1).toLowerCase();
+                brandData[brand] = (brandData[brand] || 0) + 1;
+            });
+            
+            // Sort by count and take top brands, group rest as "Other"
+            const sortedBrands = Object.entries(brandData)
+                .sort((a, b) => b[1] - a[1]);
+            
+            const topBrands = sortedBrands.slice(0, 6);
+            const otherCount = sortedBrands.slice(6).reduce((sum, [_, count]) => sum + count, 0);
+            
+            const finalBrandData = {};
+            topBrands.forEach(([brand, count]) => {
+                finalBrandData[brand] = count;
+            });
+            if (otherCount > 0) {
+                finalBrandData['Other'] = (finalBrandData['Other'] || 0) + otherCount;
+            }
+
+            if (charts.brandChart) charts.brandChart.destroy();
+            charts.brandChart = new Chart(document.getElementById('brandChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(finalBrandData),
+                    datasets: [{
+                        data: Object.values(finalBrandData),
+                        backgroundColor: [colors.primary, colors.secondary, colors.accent, colors.warning, colors.positive, '#8B5CF6', '#EC4899', '#14B8A6'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: colors.text,
+                                font: { family: "'IBM Plex Mono', monospace", size: 11 },
+                                padding: 16,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createGradeChart() {
+            const colors = getChartColors();
+            const gradeData = { 'A': 0, 'B': 0, 'C': 0, 'C (AMZ)': 0, 'D': 0, 'LOCKED': 0 };
+            inventoryData.forEach(item => {
+                const grade = item.GRADE || 'Unknown';
+                const status = (item.STATUS || '').toUpperCase();
+                if (status.includes('LOCKED')) gradeData['LOCKED']++;
+                else if (grade === 'A') gradeData['A']++;
+                else if (grade === 'B') gradeData['B']++;
+                else if (grade === 'C (AMZ)') gradeData['C (AMZ)']++;
+                else if (grade === 'C') gradeData['C']++;
+                else if (grade === 'D') gradeData['D']++;
+            });
+
+            if (charts.gradeChart) charts.gradeChart.destroy();
+            charts.gradeChart = new Chart(document.getElementById('gradeChart'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(gradeData),
+                    datasets: [{
+                        label: 'Count',
+                        data: Object.values(gradeData),
+                        backgroundColor: [colors.positive, colors.primary, colors.warning, colors.secondary, colors.negative, colors.textMuted],
+                        borderRadius: 6,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    ...getChartDefaults(),
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function createTopModelsChart() {
+            const colors = getChartColors();
+            const modelData = {};
+            inventoryData.forEach(item => {
+                const model = item.MODEL || 'Unknown';
+                modelData[model] = (modelData[model] || 0) + 1;
+            });
+            const topModels = Object.entries(modelData).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+            if (charts.topModelsChart) charts.topModelsChart.destroy();
+            charts.topModelsChart = new Chart(document.getElementById('topModelsChart'), {
+                type: 'bar',
+                data: {
+                    labels: topModels.map(m => m[0].length > 25 ? m[0].substring(0, 25) + '...' : m[0]),
+                    datasets: [{
+                        label: 'Volume',
+                        data: topModels.map(m => m[1]),
+                        backgroundColor: colors.positive,
+                        borderRadius: 4,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    ...getChartDefaults(),
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function createStorageChart() {
+            const colors = getChartColors();
+            const storageData = {};
+            inventoryData.forEach(item => {
+                const storage = item.STORAGE || 'Unknown';
+                storageData[storage] = (storageData[storage] || 0) + 1;
+            });
+
+            if (charts.storageChart) charts.storageChart.destroy();
+            charts.storageChart = new Chart(document.getElementById('storageChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(storageData),
+                    datasets: [{
+                        data: Object.values(storageData),
+                        backgroundColor: [colors.negative, colors.warning, colors.positive, colors.primary, colors.secondary, colors.accent, '#6366f1'],
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: colors.text,
+                                font: { family: "'IBM Plex Mono', monospace", size: 11 },
+                                padding: 16,
+                                usePointStyle: true
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createStationsChart() {
+            const colors = getChartColors();
+            
+            // Count items per location using Real Data
+            const locationCounts = {};
+            inventoryData.forEach(item => {
+                // Use the location name from transformation, or 'Unknown'
+                const loc = item.location || 'Unknown';
+                // Skip 'Sold' or 'Shipped' if you want to focus on operational workload
+                if (loc === 'Sold' || loc === 'Shipped') return; 
+                locationCounts[loc] = (locationCounts[loc] || 0) + 1;
+            });
+
+            // Sort by count descending
+            const sortedLocations = Object.entries(locationCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 19); // Top 19
+
+            // If no location data, fallback to dummy (or show empty)
+            // But since we have real data, we'll use it. 
+            // If the array is empty (e.g. everything Sold), handle gracefully
+            let stations = sortedLocations.map(x => x[0]);
+            let workloads = sortedLocations.map(x => x[1]);
+            
+            if (stations.length === 0) {
+                stations = ['No Active Stations'];
+                workloads = [0];
+            }
+
+            if (charts.stationsChart) charts.stationsChart.destroy();
+            charts.stationsChart = new Chart(document.getElementById('stationsChart'), {
+                type: 'bar',
+                data: {
+                    labels: stations,
+                    datasets: [{
+                        label: 'Units',
+                        data: workloads,
+                        backgroundColor: colors.warning,
+                        borderRadius: 4,
+                        borderSkipped: false
+                    }]
+                },
+                options: {
+                    ...getChartDefaults(),
+                    scales: {
+                        ...getChartDefaults().scales,
+                        y: {
+                            ...getChartDefaults().scales.y,
+                            // Remove fixed max since real data varies
+                            suggestedMax: Math.max(...workloads) * 1.1
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        function updateLastUpdated() {
+            const now = new Date();
+            document.getElementById('lastUpdated').textContent = `Last updated: ${now.toLocaleString()}`;
+        }
+
+        function refreshData() {
+            loadData();
+        }
+
+        // Listen for theme changes and update charts
+        window.addEventListener('themechange', () => {
+            updateCharts();
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>

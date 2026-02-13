@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test UED AI Integration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        /* Markdown formatting styles for AI responses */
+        #responseText strong {
+            font-weight: 700;
+            color: #111827;
+        }
+
+        #responseText em {
+            font-style: italic;
+        }
+
+        #responseText ul, #responseText ol {
+            margin: 0.75em 0;
+            padding-left: 1.5em;
+            list-style-position: outside;
+        }
+
+        #responseText ul {
+            list-style-type: disc;
+        }
+
+        #responseText ol {
+            list-style-type: decimal;
+        }
+
+        #responseText li {
+            margin: 0.5em 0;
+            line-height: 1.6;
+        }
+
+        #responseText h1, #responseText h2, #responseText h3 {
+            font-weight: 700;
+            color: #111827;
+            margin-top: 1.25em;
+            margin-bottom: 0.75em;
+        }
+
+        #responseText h1 {
+            font-size: 1.75em;
+        }
+
+        #responseText h2 {
+            font-size: 1.5em;
+        }
+
+        #responseText h3 {
+            font-size: 1.25em;
+        }
+
+        #responseText p {
+            margin: 0.75em 0;
+            line-height: 1.7;
+        }
+
+        #responseText code {
+            background: #f3f4f6;
+            padding: 0.2em 0.5em;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #e11d48;
+        }
+
+        #responseText pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1.25em;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1em 0;
+        }
+
+        #responseText pre code {
+            background: transparent;
+            padding: 0;
+            color: inherit;
+        }
+
+        #responseText blockquote {
+            border-left: 4px solid #3b82f6;
+            padding-left: 1em;
+            margin: 1em 0;
+            color: #4b5563;
+            font-style: italic;
+        }
+
+        #responseText a {
+            color: #3b82f6;
+            text-decoration: underline;
+        }
+
+        #responseText a:hover {
+            color: #2563eb;
+        }
+
+        /* Table styling */
+        #responseText table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1em 0;
+            font-size: 0.9em;
+        }
+
+        #responseText th {
+            background: #f3f4f6;
+            font-weight: 700;
+            text-align: left;
+            padding: 0.75em;
+            border: 1px solid #e5e7eb;
+        }
+
+        #responseText td {
+            padding: 0.75em;
+            border: 1px solid #e5e7eb;
+        }
+
+        #responseText tr:nth-child(even) {
+            background: #f9fafb;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        #response, #loading, #error {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Response actions */
+        .response-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .response-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .response-action-btn {
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 6px 12px;
+            font-size: 13px;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 200ms;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .response-action-btn:hover {
+            background: #f3f4f6;
+            color: #111827;
+            border-color: #9ca3af;
+        }
+
+        /* Test buttons enhancement */
+        button {
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-4xl mx-auto">
+        <div class="bg-white rounded-lg shadow-lg p-8">
+            <h1 class="text-3xl font-bold text-gray-900 mb-2">UED AI Integration Test</h1>
+            <p class="text-gray-600 mb-6">Testing Google Gemini 2.0 Flash for Yossi's inventory dashboard</p>
+            
+            <div class="space-y-4">
+                <!-- Status -->
+                <div id="status" class="p-4 bg-blue-50 border-l-4 border-blue-500 text-blue-700">
+                    <p class="font-semibold">Initializing...</p>
+                </div>
+                
+                <!-- Inventory Info -->
+                <div id="inventoryInfo" class="p-4 bg-gray-50 rounded-lg hidden">
+                    <h3 class="font-semibold text-gray-900 mb-2">Inventory Data Loaded</h3>
+                    <p class="text-sm text-gray-600">Total items: <span id="totalItems" class="font-bold">0</span></p>
+                </div>
+                
+                <!-- Test Queries -->
+                <div class="space-y-2">
+                    <h3 class="font-semibold text-gray-900">Test Queries:</h3>
+                    <button onclick="testQuery('How many iPhone 13 Pro units do we have?')" 
+                            class="w-full text-left px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition">
+                        1. How many iPhone 13 Pro units do we have?
+                    </button>
+                    <button onclick="testQuery('What is our inventory worth approximately?')" 
+                            class="w-full text-left px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition">
+                        2. What is our inventory worth approximately?
+                    </button>
+                    <button onclick="testQuery('Which models should we liquidate first?')" 
+                            class="w-full text-left px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 transition">
+                        3. Which models should we liquidate first?
+                    </button>
+                    <button onclick="testQuery('Show me Grade A inventory breakdown')" 
+                            class="w-full text-left px-4 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition">
+                        4. Show me Grade A inventory breakdown
+                    </button>
+                </div>
+                
+                <!-- Custom Query -->
+                <div class="mt-6">
+                    <h3 class="font-semibold text-gray-900 mb-2">Custom Query:</h3>
+                    <div class="flex gap-2">
+                        <input type="text" id="customQuery" placeholder="Ask anything about your inventory..." 
+                               class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               onkeypress="if(event.key==='Enter') testCustomQuery()">
+                        <button onclick="testCustomQuery()" 
+                                class="px-6 py-3 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition">
+                            Ask AI
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Response -->
+                <div id="response" class="hidden mt-6 p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg border-l-4 border-blue-500">
+                    <div class="response-header">
+                        <h3 class="font-semibold text-gray-900">AI Response</h3>
+                        <div class="response-actions">
+                            <button class="response-action-btn" onclick="copyResponse()" title="Copy response">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                                </svg>
+                                <span id="copyBtnText">Copy</span>
+                            </button>
+                            <button class="response-action-btn" onclick="exportResponse()" title="Export as markdown">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                </svg>
+                                Export
+                            </button>
+                            <button class="response-action-btn" onclick="clearResponse()" title="Clear response">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="responseText" class="prose prose-sm max-w-none text-gray-700 mt-3"></div>
+                    <p class="text-xs text-gray-500 mt-4 pt-3 border-t border-gray-200">
+                        Response time: <span id="responseTime" class="font-semibold">0ms</span> • 
+                        <span id="queryTimestamp"></span>
+                    </p>
+                </div>
+                
+                <!-- Loading -->
+                <div id="loading" class="hidden mt-6 p-6 bg-blue-50 rounded-lg text-center">
+                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    <p class="mt-2 text-blue-700 font-semibold">Gemini is thinking...</p>
+                </div>
+                
+                <!-- Error -->
+                <div id="error" class="hidden mt-6 p-6 bg-red-50 rounded-lg border-l-4 border-red-500">
+                    <h3 class="font-semibold text-red-900 mb-2">Error</h3>
+                    <p id="errorText" class="text-red-700"></p>
+                </div>
+            </div>
+            
+            <!-- Stats -->
+            <div class="mt-8 pt-6 border-t border-gray-200">
+                <h3 class="font-semibold text-gray-900 mb-3">Session Stats</h3>
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div class="p-3 bg-gray-50 rounded">
+                        <p class="text-2xl font-bold text-blue-600" id="queryCount">0</p>
+                        <p class="text-xs text-gray-600">Queries</p>
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded">
+                        <p class="text-2xl font-bold text-green-600" id="avgTime">0ms</p>
+                        <p class="text-xs text-gray-600">Avg Time</p>
+                    </div>
+                    <div class="p-3 bg-gray-50 rounded">
+                        <p class="text-2xl font-bold text-purple-600" id="successRate">100%</p>
+                        <p class="text-xs text-gray-600">Success Rate</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 text-center text-sm text-gray-500">
+            <p>Ready to use in <strong>ai-chat.html</strong></p>
+            <p class="mt-1"><a href="ai-chat.html" class="text-blue-600 hover:underline">Open AI Chat Dashboard</a></p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="gemini-assistant.js"></script>
+    
+    <script>
+        let gemini;
+        let inventoryData = [];
+        let lastResponse = '';
+        let stats = {
+            queries: 0,
+            times: [],
+            errors: 0
+        };
+        
+        // Initialize
+        async function init() {
+            try {
+                // Load inventory data from JSON file
+                updateStatus('Loading inventory data...', 'info');
+                
+                const response = await fetch('data/combined_details.json');
+                if (!response.ok) {
+                    throw new Error(`Failed to load inventory: ${response.status} ${response.statusText}`);
+                }
+                
+                inventoryData = await response.json();
+                
+                if (!Array.isArray(inventoryData) || inventoryData.length === 0) {
+                    throw new Error('Inventory data is empty or invalid');
+                }
+                
+                document.getElementById('totalItems').textContent = inventoryData.length.toLocaleString();
+                document.getElementById('inventoryInfo').classList.remove('hidden');
+                
+                updateStatus('Initializing AI...', 'info');
+                
+                // Initialize Gemini
+                const apiKey = localStorage.getItem('geminiApiKey') || prompt('Enter your Gemini API key:');
+                if (!apiKey) {
+                    updateStatus('No API key provided. Get one at https://makersuite.google.com/app/apikey', 'error');
+                    return;
+                }
+                localStorage.setItem('geminiApiKey', apiKey);
+                gemini = window.initializeGeminiAssistant(apiKey);
+                gemini.setInventoryData(inventoryData);
+                
+                updateStatus('Ready! AI connected with ' + inventoryData.length.toLocaleString() + ' inventory items', 'success');
+                
+            } catch (error) {
+                console.error('Initialization error:', error);
+                updateStatus('Initialization failed: ' + error.message + ' | Make sure to run via HTTP server: http://localhost:8000/test-gemini-ai.html', 'error');
+            }
+        }
+        
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.className = `p-4 border-l-4 ${
+                type === 'success' ? 'bg-green-50 border-green-500 text-green-700' :
+                type === 'error' ? 'bg-red-50 border-red-500 text-red-700' :
+                'bg-blue-50 border-blue-500 text-blue-700'
+            }`;
+            status.innerHTML = `<p class="font-semibold">${message}</p>`;
+        }
+        
+        async function testQuery(query) {
+            const startTime = Date.now();
+            
+            // Hide previous responses
+            document.getElementById('response').classList.add('hidden');
+            document.getElementById('error').classList.add('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+            
+            try {
+                const response = await gemini.query(query);
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+                
+                // Store response
+                lastResponse = response;
+                
+                // Update stats
+                stats.queries++;
+                stats.times.push(duration);
+                updateStats();
+                
+                // Show response
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('response').classList.remove('hidden');
+                // Parse markdown to HTML for proper formatting
+                document.getElementById('responseText').innerHTML = marked.parse(response);
+                document.getElementById('responseTime').textContent = duration + 'ms';
+                document.getElementById('queryTimestamp').textContent = new Date().toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+                
+                // Scroll to response
+                document.getElementById('response').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                
+            } catch (error) {
+                stats.errors++;
+                updateStats();
+                
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('error').classList.remove('hidden');
+                document.getElementById('errorText').textContent = error.message;
+            }
+        }
+        
+        function testCustomQuery() {
+            const input = document.getElementById('customQuery');
+            const query = input.value.trim();
+            if (query) {
+                testQuery(query);
+                input.value = '';
+            }
+        }
+        
+        function updateStats() {
+            document.getElementById('queryCount').textContent = stats.queries;
+            
+            if (stats.times.length > 0) {
+                const avg = stats.times.reduce((a, b) => a + b, 0) / stats.times.length;
+                document.getElementById('avgTime').textContent = Math.round(avg) + 'ms';
+            }
+            
+            const successRate = ((stats.queries - stats.errors) / stats.queries * 100).toFixed(0);
+            document.getElementById('successRate').textContent = successRate + '%';
+        }
+
+        // Copy response to clipboard
+        function copyResponse() {
+            if (!lastResponse) return;
+            
+            navigator.clipboard.writeText(lastResponse).then(() => {
+                const btn = document.getElementById('copyBtnText');
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.parentElement.style.color = '#10b981';
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.parentElement.style.color = '';
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                alert('Failed to copy response');
+            });
+        }
+
+        // Export response as markdown
+        function exportResponse() {
+            if (!lastResponse) return;
+            
+            const blob = new Blob([lastResponse], { type: 'text/markdown' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `gemini-response-${Date.now()}.md`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Clear response
+        function clearResponse() {
+            document.getElementById('response').classList.add('hidden');
+            lastResponse = '';
+        }
+        
+        // Initialize on load
+        window.onload = init;
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Incremental Sync</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .status-box {
+            background: #f0f9ff;
+            border: 2px solid #0284c7;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+        .progress-bar {
+            height: 24px;
+            background: #e5e7eb;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 12px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0284c7 0%, #0ea5e9 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .log-entry {
+            padding: 8px 12px;
+            border-left: 3px solid #94a3b8;
+            margin: 4px 0;
+            background: #f8fafc;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .log-entry.success { border-left-color: #10b981; background: #f0fdf4; }
+        .log-entry.info { border-left-color: #0284c7; background: #f0f9ff; }
+        .log-entry.warning { border-left-color: #f59e0b; background: #fffbeb; }
+        .log-entry.error { border-left-color: #ef4444; background: #fef2f2; }
+    </style>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold text-gray-900 mb-6">
+            🚀 Wholecell Incremental Sync Test
+        </h1>
+
+        <!-- Status Card -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Cache Status</h2>
+            <div id="cache-status" class="status-box">
+                <p class="text-gray-600">Loading cache status...</p>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Controls</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="loadData()" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+                    📥 Load Data (Smart Sync)
+                </button>
+                <button onclick="forceFullSync()" class="bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 transition">
+                    🔄 Force Full Sync
+                </button>
+                <button onclick="checkForUpdates()" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition">
+                    🔍 Check for Updates
+                </button>
+                <button onclick="clearCache()" class="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition">
+                    🗑️ Clear Cache
+                </button>
+            </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6" id="progress-section" style="display: none;">
+            <h2 class="text-xl font-semibold mb-4">Progress</h2>
+            <div id="progress-message" class="text-gray-700 mb-2">Initializing...</div>
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill" style="width: 0%">0%</div>
+            </div>
+            <div id="progress-details" class="text-sm text-gray-600"></div>
+        </div>
+
+        <!-- Results -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Results</h2>
+            <div id="results" class="text-gray-600">
+                <p>No data loaded yet. Click "Load Data" to start.</p>
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4">Activity Log</h2>
+            <div id="log" class="space-y-1 max-h-96 overflow-y-auto">
+                <!-- Log entries will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Scripts -->
+    <script src="wholecell-api.js"></script>
+    <script src="wholecell-transformer.js"></script>
+    <script src="wholecell-incremental-sync.js"></script>
+
+    <script>
+        let currentData = [];
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', async () => {
+            log('Page loaded', 'info');
+            await updateCacheStatus();
+        });
+
+        // Update cache status display
+        async function updateCacheStatus() {
+            try {
+                const stats = await window.wholecellIncrementalSync.getCacheStats();
+                const statusEl = document.getElementById('cache-status');
+                
+                if (stats.exists) {
+                    const lastSync = new Date(stats.lastIncrementalSync);
+                    const age = stats.ageMinutes;
+                    
+                    statusEl.innerHTML = `
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <div class="text-sm text-gray-600">Total Items</div>
+                                <div class="text-2xl font-bold text-blue-600">${stats.itemCount.toLocaleString()}</div>
+                            </div>
+                            <div>
+                                <div class="text-sm text-gray-600">Last Sync</div>
+                                <div class="text-2xl font-bold text-green-600">${age} min ago</div>
+                            </div>
+                            <div>
+                                <div class="text-sm text-gray-600">Last Full Sync</div>
+                                <div class="text-sm text-gray-700">${new Date(stats.lastFullSync).toLocaleString()}</div>
+                            </div>
+                            <div>
+                                <div class="text-sm text-gray-600">Last Changes</div>
+                                <div class="text-sm text-gray-700">${stats.lastChangeCount || 0} items</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    statusEl.innerHTML = `
+                        <div class="text-center">
+                            <p class="text-lg font-semibold text-orange-600 mb-2">⚠️ No Cache Available</p>
+                            <p class="text-sm text-gray-600">First load will take approximately 18 minutes</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                log('Error checking cache status: ' + error.message, 'error');
+            }
+        }
+
+        // Load data using smart sync
+        async function loadData() {
+            log('Starting smart sync...', 'info');
+            showProgress();
+            
+            try {
+                // Initialize API
+                if (!window.wholecellAPI) {
+                    window.wholecellAPI = new WholecellAPI();
+                    window.wholecellAPI.setProxyUrl('http://localhost:5001');
+                }
+                
+                // Check health
+                const isHealthy = await window.wholecellAPI.checkHealth();
+                if (!isHealthy) {
+                    throw new Error('Proxy server not reachable. Please start it with ./start-production.sh');
+                }
+                
+                log('✅ Proxy server is healthy', 'success');
+                
+                // Smart sync
+                currentData = await window.wholecellIncrementalSync.smartSync(
+                    window.wholecellAPI,
+                    {
+                        onProgress: (status) => {
+                            handleProgress(status);
+                        },
+                        onComplete: (result) => {
+                            handleComplete(result);
+                        }
+                    }
+                );
+                
+                displayResults(currentData);
+                await updateCacheStatus();
+                
+            } catch (error) {
+                log('❌ Error: ' + error.message, 'error');
+                hideProgress();
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Force full sync
+        async function forceFullSync() {
+            if (!confirm('This will reload all data (~18 minutes). Continue?')) {
+                return;
+            }
+            
+            log('Starting FULL sync (this will take ~18 minutes)...', 'warning');
+            showProgress();
+            
+            try {
+                if (!window.wholecellAPI) {
+                    window.wholecellAPI = new WholecellAPI();
+                    window.wholecellAPI.setProxyUrl('http://localhost:5001');
+                }
+                
+                currentData = await window.wholecellIncrementalSync.smartSync(
+                    window.wholecellAPI,
+                    {
+                        forceFullSync: true,
+                        onProgress: (status) => {
+                            handleProgress(status);
+                        },
+                        onComplete: (result) => {
+                            handleComplete(result);
+                        }
+                    }
+                );
+                
+                displayResults(currentData);
+                await updateCacheStatus();
+                
+            } catch (error) {
+                log('❌ Error: ' + error.message, 'error');
+                hideProgress();
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Check for updates only
+        async function checkForUpdates() {
+            log('Checking for updates...', 'info');
+            
+            try {
+                if (!window.wholecellAPI) {
+                    window.wholecellAPI = new WholecellAPI();
+                    window.wholecellAPI.setProxyUrl('http://localhost:5001');
+                }
+                
+                // This will use cache and check for changes
+                await loadData();
+                
+            } catch (error) {
+                log('❌ Error: ' + error.message, 'error');
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Clear cache
+        async function clearCache() {
+            if (!confirm('This will clear all cached data. Continue?')) {
+                return;
+            }
+            
+            log('Clearing cache...', 'warning');
+            
+            try {
+                await window.wholecellIncrementalSync.clearCache();
+                log('✅ Cache cleared', 'success');
+                
+                currentData = [];
+                document.getElementById('results').innerHTML = '<p class="text-gray-600">Cache cleared. Load data to start fresh.</p>';
+                await updateCacheStatus();
+                
+            } catch (error) {
+                log('❌ Error: ' + error.message, 'error');
+                alert('Error: ' + error.message);
+            }
+        }
+
+        // Handle progress updates
+        function handleProgress(status) {
+            const messageEl = document.getElementById('progress-message');
+            const fillEl = document.getElementById('progress-fill');
+            const detailsEl = document.getElementById('progress-details');
+            
+            messageEl.textContent = status.message || 'Processing...';
+            
+            if (status.percent !== undefined) {
+                fillEl.style.width = status.percent + '%';
+                fillEl.textContent = status.percent + '%';
+            }
+            
+            if (status.elapsed !== undefined && status.remaining !== undefined) {
+                detailsEl.textContent = `Elapsed: ${status.elapsed}s | Remaining: ~${status.remaining}s`;
+            } else {
+                detailsEl.textContent = '';
+            }
+            
+            log(`[${status.stage}] ${status.message}`, 'info');
+        }
+
+        // Handle completion
+        function handleComplete(result) {
+            hideProgress();
+            
+            if (result.success) {
+                const changeMsg = result.changes 
+                    ? `New: ${result.changes.new}, Modified: ${result.changes.modified}, Removed: ${result.changes.removed || 0}`
+                    : 'No changes';
+                
+                log(`✅ Sync complete (${result.syncType}): ${changeMsg}`, 'success');
+            } else {
+                log(`❌ Sync failed: ${result.error}`, 'error');
+            }
+        }
+
+        // Display results
+        function displayResults(data) {
+            const resultsEl = document.getElementById('results');
+            
+            if (!data || data.length === 0) {
+                resultsEl.innerHTML = '<p class="text-gray-600">No data available</p>';
+                return;
+            }
+            
+            // Get statistics
+            const statusCounts = {};
+            const modelCounts = {};
+            
+            data.forEach(item => {
+                const status = item.STATUS || 'Unknown';
+                const model = item.MODEL || 'Unknown';
+                
+                statusCounts[status] = (statusCounts[status] || 0) + 1;
+                modelCounts[model] = (modelCounts[model] || 0) + 1;
+            });
+            
+            const topModels = Object.entries(modelCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+            
+            resultsEl.innerHTML = `
+                <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="font-semibold text-lg mb-3">📊 Summary</h3>
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Total Items:</span>
+                                <span class="font-bold">${data.length.toLocaleString()}</span>
+                            </div>
+                            <div class="mt-4">
+                                <div class="font-semibold mb-2">By Status:</div>
+                                ${Object.entries(statusCounts)
+                                    .map(([status, count]) => `
+                                        <div class="flex justify-between text-sm">
+                                            <span>${status}:</span>
+                                            <span class="font-semibold">${count.toLocaleString()}</span>
+                                        </div>
+                                    `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-lg mb-3">📱 Top 5 Models</h3>
+                        <div class="space-y-2">
+                            ${topModels.map(([model, count]) => `
+                                <div class="flex justify-between">
+                                    <span class="text-gray-700 truncate">${model}</span>
+                                    <span class="font-semibold ml-2">${count.toLocaleString()}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            log(`📊 Displayed results for ${data.length} items`, 'success');
+        }
+
+        // Show progress section
+        function showProgress() {
+            document.getElementById('progress-section').style.display = 'block';
+            document.getElementById('progress-fill').style.width = '0%';
+            document.getElementById('progress-fill').textContent = '0%';
+        }
+
+        // Hide progress section
+        function hideProgress() {
+            setTimeout(() => {
+                document.getElementById('progress-section').style.display = 'none';
+            }, 2000);
+        }
+
+        // Add log entry
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            
+            logEl.insertBefore(entry, logEl.firstChild);
+            
+            // Keep only last 50 entries
+            while (logEl.children.length > 50) {
+                logEl.removeChild(logEl.lastChild);
+            }
+            
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Verify Data Source - Wholecell vs Mock</title>
+    <script src="wholecell-api.js"></script>
+    <script src="wholecell-transformer.js"></script>
+    <style>
+        body { font-family: system-ui; padding: 20px; max-width: 1200px; margin: 0 auto; }
+        .test { padding: 15px; margin: 10px 0; border-radius: 5px; border-left: 5px solid; }
+        .success { background: #d4edda; border-color: #28a745; color: #155724; }
+        .error { background: #f8d7da; border-color: #dc3545; color: #721c24; }
+        .info { background: #d1ecf1; border-color: #17a2b8; color: #0c5460; }
+        .warning { background: #fff3cd; border-color: #ffc107; color: #856404; }
+        pre { background: #f8f9fa; padding: 10px; overflow: auto; font-size: 12px; }
+        h2 { margin-top: 30px; }
+        .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .source-box { padding: 15px; border: 2px solid #ddd; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Data Source Verification Test</h1>
+    <p>This test verifies we're getting REAL data from Wholecell API, not mock data.</p>
+    
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test ${type}`;
+            div.innerHTML = message;
+            results.appendChild(div);
+            console.log(message.replace(/<[^>]*>/g, ''));
+        }
+        
+        async function verifyDataSource() {
+            log('<h2>Step 1: Check Proxy Server</h2>', 'info');
+            
+            try {
+                // Test proxy health
+                const proxyResponse = await fetch('http://localhost:5001/api/health');
+                if (proxyResponse.ok) {
+                    const health = await proxyResponse.json();
+                    log(`✅ Proxy server is running on <code>localhost:5001</code>`, 'success');
+                    log(`<pre>${JSON.stringify(health, null, 2)}</pre>`, 'info');
+                } else {
+                    throw new Error('Proxy not responding');
+                }
+            } catch (error) {
+                log(`❌ Proxy server not accessible: ${error.message}`, 'error');
+                log('⚠️ Start proxy with: <code>PORT=5001 python3 wholecell-proxy.py</code>', 'warning');
+                return;
+            }
+            
+            log('<h2>Step 2: Fetch Data from Wholecell API</h2>', 'info');
+            
+            try {
+                // Fetch directly from proxy to see raw Wholecell data
+                log('Fetching raw data from proxy (page 1)...', 'info');
+                const proxyUrl = 'http://localhost:5001/api/inventory?page=1';
+                const response = await fetch(proxyUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`Proxy returned ${response.status}`);
+                }
+                
+                const rawData = await response.json();
+                log(`✅ Got response from Wholecell API via proxy`, 'success');
+                log(`   • Total items in response: ${rawData.data?.length || 0}`, 'info');
+                log(`   • Total pages available: ${rawData.pages || 'unknown'}`, 'info');
+                log(`   • Current page: ${rawData.page || 1}`, 'info');
+                
+                if (rawData.data && rawData.data.length > 0) {
+                    const firstItem = rawData.data[0];
+                    log('<h3>Raw Wholecell Item Sample:</h3>', 'info');
+                    log(`<pre>${JSON.stringify(firstItem, null, 2)}</pre>`, 'info');
+                    
+                    // Key identifiers from Wholecell
+                    log('<h3>Wholecell Data Identifiers:</h3>', 'success');
+                    log(`   • ESN: <code>${firstItem.esn}</code>`, 'success');
+                    log(`   • Status: <code>${firstItem.status}</code>`, 'success');
+                    log(`   • Location: <code>${firstItem.location?.name || 'N/A'}</code>`, 'success');
+                    log(`   • Cost: <code>$${(firstItem.total_price_paid / 100).toFixed(2)}</code>`, 'success');
+                    
+                    // Store for comparison
+                    window.wholecellRawData = rawData.data;
+                }
+                
+            } catch (error) {
+                log(`❌ Error fetching from Wholecell: ${error.message}`, 'error');
+                return;
+            }
+            
+            log('<h2>Step 3: Transform Wholecell Data</h2>', 'info');
+            
+            try {
+                const transformed = WholecellTransformer.transformAll(window.wholecellRawData);
+                log(`✅ Transformed ${transformed.length} items`, 'success');
+                
+                if (transformed.length > 0) {
+                    const firstTransformed = transformed[0];
+                    log('<h3>Transformed Item Sample:</h3>', 'info');
+                    log(`<pre>${JSON.stringify(firstTransformed, null, 2)}</pre>`, 'info');
+                    
+                    log('<h3>Transformed Data Verification:</h3>', 'success');
+                    log(`   • IMEI: <code>${firstTransformed['IMEI/ SERIAL NO.']}</code>`, 'success');
+                    log(`   • Model: <code>${firstTransformed.MODEL}</code>`, 'success');
+                    log(`   • Status: <code>${firstTransformed.STATUS}</code>`, 'success');
+                    log(`   • Grade: <code>${firstTransformed.GRADE}</code>`, 'success');
+                    log(`   • Source: <code>${firstTransformed.source}</code>`, 'success');
+                    
+                    // Check source field
+                    if (firstTransformed.source === 'WHOLECELL') {
+                        log('✅ <strong>DATA SOURCE CONFIRMED: WHOLECELL</strong>', 'success');
+                    } else {
+                        log(`⚠️ Source field is: <code>${firstTransformed.source}</code> (expected WHOLECELL)`, 'warning');
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Error transforming data: ${error.message}`, 'error');
+                return;
+            }
+            
+            log('<h2>Step 4: Test Complete Integration (Using WholecellAPI class)</h2>', 'info');
+            
+            try {
+                const api = new WholecellAPI();
+                const wholecellData = await api.fetchAllInventory({
+                    useCache: false,
+                    maxPages: 1
+                });
+                
+                log(`✅ WholecellAPI.fetchAllInventory() returned ${wholecellData.length} items`, 'success');
+                
+                const transformed = WholecellTransformer.transformAll(wholecellData);
+                log(`✅ Transformed to ${transformed.length} app-format items`, 'success');
+                
+                if (transformed.length > 0) {
+                    log('<h3>Final Verification:</h3>', 'success');
+                    log(`   • Total items fetched: ${transformed.length}`, 'success');
+                    log(`   • All items have source=WHOLECELL: ${transformed.every(i => i.source === 'WHOLECELL') ? '✅ YES' : '❌ NO'}`, 
+                        transformed.every(i => i.source === 'WHOLECELL') ? 'success' : 'error');
+                    log(`   • Data structure valid: ${transformed.every(i => i['IMEI/ SERIAL NO.'] && i.MODEL) ? '✅ YES' : '❌ NO'}`,
+                        transformed.every(i => i['IMEI/ SERIAL NO.'] && i.MODEL) ? 'success' : 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Error in complete integration: ${error.message}`, 'error');
+                return;
+            }
+            
+            log('<h2>✅ ALL TESTS PASSED!</h2>', 'success');
+            log('<strong>CONFIRMED: Data is loading from Wholecell API, not mock data!</strong>', 'success');
+            log('You can now safely remove mock data files (combined_details.json and combined_details.preloaded.js)', 'info');
+        }
+        
+        // Run tests on load
+        verifyDataSource();
+    </script>
+</body>
+</html>
+

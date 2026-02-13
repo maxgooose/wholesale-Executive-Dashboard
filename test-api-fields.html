@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wholecell API Fields Explorer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-gray-800">Wholecell API Fields Explorer</h1>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-xl font-semibold mb-4">Quick Field Discovery</h2>
+            <p class="text-gray-600 mb-4">This tool analyzes the first few pages of your Wholecell data to discover all available fields and their values.</p>
+            
+            <div class="flex gap-4 mb-4">
+                <button onclick="discoverFields()" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                    🔍 Discover All Fields
+                </button>
+                <button onclick="analyzeCustomFields()" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
+                    🎯 Analyze Custom Fields
+                </button>
+                <button onclick="analyzeLocations()" class="bg-purple-600 text-white px-6 py-2 rounded hover:bg-purple-700">
+                    📍 Analyze Locations
+                </button>
+                <button onclick="analyzeStatuses()" class="bg-orange-600 text-white px-6 py-2 rounded hover:bg-orange-700">
+                    📊 Analyze Statuses
+                </button>
+            </div>
+            
+            <div id="progress" class="hidden mb-4">
+                <div class="bg-gray-200 rounded-full h-4">
+                    <div id="progressBar" class="bg-blue-600 h-4 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="progressText" class="text-sm text-gray-600 mt-2"></p>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="space-y-6">
+            <!-- Results will be inserted here -->
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5001/api/inventory';
+        const PAGES_TO_ANALYZE = 5; // Analyze first 5 pages
+
+        async function fetchPages(numPages) {
+            const progress = document.getElementById('progress');
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+            
+            progress.classList.remove('hidden');
+            
+            const allItems = [];
+            
+            for (let page = 1; page <= numPages; page++) {
+                progressText.textContent = `Fetching page ${page} of ${numPages}...`;
+                progressBar.style.width = `${(page / numPages) * 100}%`;
+                
+                try {
+                    const response = await fetch(`${API_URL}?page=${page}`);
+                    const data = await response.json();
+                    
+                    if (data.data && Array.isArray(data.data)) {
+                        allItems.push(...data.data);
+                    }
+                    
+                    // Delay to avoid rate limiting
+                    if (page < numPages) {
+                        await sleep(500);
+                    }
+                } catch (error) {
+                    console.error(`Error fetching page ${page}:`, error);
+                }
+            }
+            
+            progress.classList.add('hidden');
+            return allItems;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function discoverFields() {
+            showLoading('Discovering all fields...');
+            
+            try {
+                const items = await fetchPages(PAGES_TO_ANALYZE);
+                
+                if (items.length === 0) {
+                    showError('No data found. Make sure the proxy server is running.');
+                    return;
+                }
+
+                // Analyze field structure
+                const fieldAnalysis = analyzeFieldStructure(items);
+                
+                displayFieldAnalysis(fieldAnalysis, items.length);
+            } catch (error) {
+                showError('Error discovering fields: ' + error.message);
+            }
+        }
+
+        function analyzeFieldStructure(items) {
+            const analysis = {
+                topLevelFields: new Map(),
+                productFields: new Map(),
+                productVariationFields: new Map(),
+                customFields: new Map(),
+                warehouseFields: new Map(),
+                locationFields: new Map()
+            };
+
+            items.forEach(item => {
+                // Top level fields
+                Object.keys(item).forEach(key => {
+                    if (!analysis.topLevelFields.has(key)) {
+                        analysis.topLevelFields.set(key, {
+                            count: 0,
+                            types: new Set(),
+                            samples: []
+                        });
+                    }
+                    const field = analysis.topLevelFields.get(key);
+                    field.count++;
+                    field.types.add(typeof item[key]);
+                    if (field.samples.length < 3 && item[key] !== null) {
+                        field.samples.push(item[key]);
+                    }
+                });
+
+                // Product fields
+                if (item.product_variation?.product) {
+                    Object.keys(item.product_variation.product).forEach(key => {
+                        if (!analysis.productFields.has(key)) {
+                            analysis.productFields.set(key, new Set());
+                        }
+                        if (item.product_variation.product[key]) {
+                            analysis.productFields.get(key).add(item.product_variation.product[key]);
+                        }
+                    });
+                }
+
+                // Custom fields
+                if (item.custom_field_values) {
+                    Object.entries(item.custom_field_values).forEach(([key, value]) => {
+                        if (!analysis.customFields.has(key)) {
+                            analysis.customFields.set(key, new Set());
+                        }
+                        if (value) {
+                            analysis.customFields.get(key).add(value);
+                        }
+                    });
+                }
+
+                // Location fields
+                if (item.location) {
+                    Object.keys(item.location).forEach(key => {
+                        if (!analysis.locationFields.has(key)) {
+                            analysis.locationFields.set(key, new Set());
+                        }
+                        if (item.location[key]) {
+                            analysis.locationFields.get(key).add(item.location[key]);
+                        }
+                    });
+                }
+
+                // Warehouse fields
+                if (item.warehouse) {
+                    Object.keys(item.warehouse).forEach(key => {
+                        if (!analysis.warehouseFields.has(key)) {
+                            analysis.warehouseFields.set(key, new Set());
+                        }
+                        if (item.warehouse[key]) {
+                            analysis.warehouseFields.get(key).add(item.warehouse[key]);
+                        }
+                    });
+                }
+            });
+
+            return analysis;
+        }
+
+        function displayFieldAnalysis(analysis, totalItems) {
+            const resultsDiv = document.getElementById('results');
+            
+            let html = `
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-2xl font-bold mb-4">Field Discovery Results</h2>
+                    <p class="text-gray-600 mb-4">Analyzed ${totalItems} items from first ${PAGES_TO_ANALYZE} pages</p>
+                    
+                    <div class="space-y-6">
+            `;
+
+            // Top Level Fields
+            html += `
+                <div>
+                    <h3 class="text-xl font-semibold mb-3 text-blue-600">📋 Top-Level Fields (${analysis.topLevelFields.size})</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Field Name</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Coverage</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Sample Values</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+            `;
+
+            analysis.topLevelFields.forEach((info, field) => {
+                const coverage = ((info.count / totalItems) * 100).toFixed(1);
+                const types = Array.from(info.types).join(', ');
+                const samples = info.samples.slice(0, 2).map(s => 
+                    typeof s === 'object' ? JSON.stringify(s).substring(0, 50) : String(s).substring(0, 50)
+                ).join(', ');
+                
+                html += `
+                    <tr>
+                        <td class="px-4 py-2 font-mono text-sm">${field}</td>
+                        <td class="px-4 py-2 text-sm text-gray-600">${types}</td>
+                        <td class="px-4 py-2 text-sm">${coverage}%</td>
+                        <td class="px-4 py-2 text-sm text-gray-600 truncate max-w-xs">${samples || 'null'}</td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            // Custom Fields
+            html += displayFieldMap('🎯 Custom Fields', analysis.customFields, 'green');
+
+            // Product Fields
+            html += displayFieldMap('📱 Product Fields', analysis.productFields, 'blue');
+
+            // Location Fields
+            html += displayFieldMap('📍 Location Fields', analysis.locationFields, 'purple');
+
+            // Warehouse Fields
+            html += displayFieldMap('🏢 Warehouse Fields', analysis.warehouseFields, 'orange');
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            resultsDiv.innerHTML = html;
+        }
+
+        function displayFieldMap(title, fieldMap, color) {
+            if (fieldMap.size === 0) return '';
+
+            let html = `
+                <div>
+                    <h3 class="text-xl font-semibold mb-3 text-${color}-600">${title} (${fieldMap.size})</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            `;
+
+            fieldMap.forEach((values, field) => {
+                const valuesList = Array.from(values).slice(0, 10);
+                const moreCount = values.size - valuesList.length;
+                
+                html += `
+                    <div class="border border-gray-200 rounded p-3">
+                        <h4 class="font-semibold text-sm mb-2">${field}</h4>
+                        <div class="text-xs text-gray-600">
+                            <p class="mb-1"><strong>Unique values:</strong> ${values.size}</p>
+                            <p><strong>Examples:</strong></p>
+                            <ul class="list-disc list-inside mt-1">
+                                ${valuesList.map(v => `<li>${String(v).substring(0, 50)}</li>`).join('')}
+                                ${moreCount > 0 ? `<li class="text-gray-400">... and ${moreCount} more</li>` : ''}
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            return html;
+        }
+
+        async function analyzeCustomFields() {
+            showLoading('Analyzing custom fields...');
+            
+            try {
+                const items = await fetchPages(PAGES_TO_ANALYZE);
+                
+                const customFieldAnalysis = new Map();
+                
+                items.forEach(item => {
+                    if (item.custom_field_values) {
+                        Object.entries(item.custom_field_values).forEach(([key, value]) => {
+                            if (!customFieldAnalysis.has(key)) {
+                                customFieldAnalysis.set(key, {
+                                    count: 0,
+                                    values: new Map(),
+                                    nullCount: 0
+                                });
+                            }
+                            
+                            const field = customFieldAnalysis.get(key);
+                            field.count++;
+                            
+                            if (value === null || value === undefined || value === '') {
+                                field.nullCount++;
+                            } else {
+                                if (!field.values.has(value)) {
+                                    field.values.set(value, 0);
+                                }
+                                field.values.set(value, field.values.get(value) + 1);
+                            }
+                        });
+                    }
+                });
+
+                displayCustomFieldAnalysis(customFieldAnalysis, items.length);
+            } catch (error) {
+                showError('Error analyzing custom fields: ' + error.message);
+            }
+        }
+
+        function displayCustomFieldAnalysis(analysis, totalItems) {
+            const resultsDiv = document.getElementById('results');
+            
+            let html = `
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-2xl font-bold mb-4">🎯 Custom Fields Detailed Analysis</h2>
+                    <p class="text-gray-600 mb-4">Found ${analysis.size} custom fields in ${totalItems} items</p>
+                    
+                    ${analysis.size === 0 ? `
+                        <div class="bg-yellow-50 border border-yellow-200 rounded p-4">
+                            <p class="text-yellow-800">⚠️ No custom fields found. This could mean:</p>
+                            <ul class="list-disc list-inside mt-2 text-yellow-700">
+                                <li>Custom fields are not configured in your Wholecell account</li>
+                                <li>The data doesn't have custom field values yet</li>
+                                <li>Custom fields are named differently</li>
+                            </ul>
+                        </div>
+                    ` : ''}
+                    
+                    <div class="space-y-4">
+            `;
+
+            analysis.forEach((data, fieldName) => {
+                const coverage = ((data.count / totalItems) * 100).toFixed(1);
+                const fillRate = (((data.count - data.nullCount) / data.count) * 100).toFixed(1);
+                
+                html += `
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-3">
+                            <h3 class="font-bold text-lg">${fieldName}</h3>
+                            <div class="text-right text-sm">
+                                <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded">${coverage}% coverage</span>
+                                <span class="bg-green-100 text-green-800 px-2 py-1 rounded ml-2">${fillRate}% filled</span>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4 mb-3 text-sm">
+                            <div>
+                                <strong>Total occurrences:</strong> ${data.count}
+                            </div>
+                            <div>
+                                <strong>Null/Empty:</strong> ${data.nullCount}
+                            </div>
+                            <div>
+                                <strong>Unique values:</strong> ${data.values.size}
+                            </div>
+                            <div>
+                                <strong>Populated:</strong> ${data.count - data.nullCount}
+                            </div>
+                        </div>
+                        
+                        ${data.values.size > 0 ? `
+                            <div>
+                                <h4 class="font-semibold text-sm mb-2">Value Distribution:</h4>
+                                <div class="space-y-1">
+                                    ${Array.from(data.values.entries())
+                                        .sort((a, b) => b[1] - a[1])
+                                        .slice(0, 10)
+                                        .map(([value, count]) => {
+                                            const percentage = ((count / data.count) * 100).toFixed(1);
+                                            return `
+                                                <div class="flex items-center text-sm">
+                                                    <div class="w-32 truncate">${value}</div>
+                                                    <div class="flex-1 mx-2">
+                                                        <div class="bg-gray-200 rounded-full h-4">
+                                                            <div class="bg-green-500 h-4 rounded-full" style="width: ${percentage}%"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="w-20 text-right text-gray-600">${count} (${percentage}%)</div>
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            resultsDiv.innerHTML = html;
+        }
+
+        async function analyzeLocations() {
+            showLoading('Analyzing locations...');
+            
+            try {
+                const items = await fetchPages(PAGES_TO_ANALYZE);
+                
+                const locationAnalysis = {
+                    warehouses: new Map(),
+                    locations: new Map(),
+                    combinations: new Map()
+                };
+
+                items.forEach(item => {
+                    const warehouse = item.warehouse?.name || 'Unknown';
+                    const location = item.location?.name || 'Unknown';
+                    const combo = `${warehouse} > ${location}`;
+
+                    locationAnalysis.warehouses.set(warehouse, (locationAnalysis.warehouses.get(warehouse) || 0) + 1);
+                    locationAnalysis.locations.set(location, (locationAnalysis.locations.get(location) || 0) + 1);
+                    locationAnalysis.combinations.set(combo, (locationAnalysis.combinations.get(combo) || 0) + 1);
+                });
+
+                displayLocationAnalysis(locationAnalysis, items.length);
+            } catch (error) {
+                showError('Error analyzing locations: ' + error.message);
+            }
+        }
+
+        function displayLocationAnalysis(analysis, totalItems) {
+            const resultsDiv = document.getElementById('results');
+            
+            let html = `
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-2xl font-bold mb-4">📍 Location Analysis</h2>
+                    <p class="text-gray-600 mb-6">Distribution across ${analysis.warehouses.size} warehouses and ${analysis.locations.size} locations</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <h3 class="text-xl font-semibold mb-3 text-purple-600">Warehouses</h3>
+                            ${createDistributionChart(analysis.warehouses, totalItems)}
+                        </div>
+                        
+                        <div>
+                            <h3 class="text-xl font-semibold mb-3 text-blue-600">Locations/Rooms</h3>
+                            ${createDistributionChart(analysis.locations, totalItems)}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6">
+                        <h3 class="text-xl font-semibold mb-3 text-green-600">Warehouse > Location Combinations</h3>
+                        ${createDistributionChart(analysis.combinations, totalItems)}
+                    </div>
+                </div>
+            `;
+
+            resultsDiv.innerHTML = html;
+        }
+
+        async function analyzeStatuses() {
+            showLoading('Analyzing device statuses...');
+            
+            try {
+                const items = await fetchPages(PAGES_TO_ANALYZE);
+                
+                const statusAnalysis = new Map();
+                const gradeByStatus = new Map();
+
+                items.forEach(item => {
+                    const status = item.status || 'Unknown';
+                    const grade = item.product_variation?.grade || 'Unknown';
+
+                    statusAnalysis.set(status, (statusAnalysis.get(status) || 0) + 1);
+
+                    if (!gradeByStatus.has(status)) {
+                        gradeByStatus.set(status, new Map());
+                    }
+                    const gradeMap = gradeByStatus.get(status);
+                    gradeMap.set(grade, (gradeMap.get(grade) || 0) + 1);
+                });
+
+                displayStatusAnalysis(statusAnalysis, gradeByStatus, items.length);
+            } catch (error) {
+                showError('Error analyzing statuses: ' + error.message);
+            }
+        }
+
+        function displayStatusAnalysis(statusAnalysis, gradeByStatus, totalItems) {
+            const resultsDiv = document.getElementById('results');
+            
+            let html = `
+                <div class="bg-white rounded-lg shadow-md p-6">
+                    <h2 class="text-2xl font-bold mb-4">📊 Status Analysis</h2>
+                    <p class="text-gray-600 mb-6">Found ${statusAnalysis.size} different status values</p>
+                    
+                    <div class="mb-6">
+                        <h3 class="text-xl font-semibold mb-3">Status Distribution</h3>
+                        ${createDistributionChart(statusAnalysis, totalItems)}
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-xl font-semibold mb-3">Grade Distribution by Status</h3>
+                        <div class="space-y-4">
+            `;
+
+            gradeByStatus.forEach((grades, status) => {
+                const total = Array.from(grades.values()).reduce((a, b) => a + b, 0);
+                html += `
+                    <div class="border border-gray-200 rounded p-4">
+                        <h4 class="font-bold mb-2">${status} (${total} items)</h4>
+                        ${createDistributionChart(grades, total)}
+                    </div>
+                `;
+            });
+
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            resultsDiv.innerHTML = html;
+        }
+
+        function createDistributionChart(dataMap, total) {
+            const sorted = Array.from(dataMap.entries()).sort((a, b) => b[1] - a[1]);
+            
+            return `
+                <div class="space-y-2">
+                    ${sorted.map(([name, count]) => {
+                        const percentage = ((count / total) * 100).toFixed(1);
+                        return `
+                            <div class="flex items-center">
+                                <div class="w-32 text-sm truncate">${name}</div>
+                                <div class="flex-1 mx-2">
+                                    <div class="bg-gray-200 rounded-full h-6">
+                                        <div class="bg-blue-500 h-6 rounded-full flex items-center justify-end pr-2 text-white text-xs font-bold" style="width: ${percentage}%">
+                                            ${percentage > 10 ? percentage + '%' : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="w-24 text-right text-sm text-gray-600">
+                                    ${count} ${percentage <= 10 ? `(${percentage}%)` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function showLoading(message) {
+            document.getElementById('results').innerHTML = `
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-8 text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p class="text-blue-800 font-semibold">${message}</p>
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            document.getElementById('results').innerHTML = `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+                    <h3 class="text-red-800 font-bold text-lg mb-2">❌ Error</h3>
+                    <p class="text-red-700">${message}</p>
+                    <p class="text-red-600 text-sm mt-2">Make sure the proxy server is running on port 5001.</p>
+                </div>
+            `;
+        }
+
+        // Show instructions on load
+        document.getElementById('results').innerHTML = `
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                <h3 class="text-blue-800 font-bold text-lg mb-2">👋 Welcome to API Fields Explorer</h3>
+                <p class="text-blue-700 mb-4">This tool helps you discover what fields are available in your Wholecell data.</p>
+                <p class="text-blue-600 text-sm"><strong>Before you start:</strong> Make sure the Wholecell proxy server is running on port 5001.</p>
+                <p class="text-blue-600 text-sm mt-2">Click any button above to begin analysis.</p>
+            </div>
+        `;
+    </script>
+</body>
+</html>
+

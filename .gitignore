@@ -1,0 +1,38 @@
+# Environment & secrets
+.env
+.env.local
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+*.egg-info/
+
+# Logs
+*.log
+logs/
+data/logs/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Data snapshots (large files)
+data/available-inventory.json
+data/combined_details.preloaded.js.OLD
+
+# PID files
+*.pid
+logs/*.pid
+data/logs/*.pid
+
+# Proxy logs
+proxy-server.log
+data/proxy-server.log
