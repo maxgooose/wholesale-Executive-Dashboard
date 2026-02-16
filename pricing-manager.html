@@ -1394,8 +1394,7 @@
                     <option value="value-desc">Value: High to Low</option>
                     <option value="value-asc">Value: Low to High</option>
                     <option value="status-asc">Unpriced First</option>
-                    <option value="locRR-desc">Ready Room First</option>
-                    <option value="locProc-desc">Processing First</option>
+                    <!-- location sort removed -->
                 </select>
             </div>
             <div class="filter-section">
@@ -1496,7 +1495,6 @@
                     <th style="width:32px;"><input type="checkbox" id="selectAll" class="row-checkbox" onchange="toggleSelectAll()"></th>
                     <th>Model</th>
                     <th>Storage</th>
-                    <th>Location</th>
                     <th>Grades</th>
                     <th style="text-align:center;">Qty</th>
                     <th style="text-align:center;">Price</th>
@@ -2116,8 +2114,6 @@
             if (field === 'total') return m * (a.total - b.total);
             if (field === 'value') return m * (getRowValue(a) - getRowValue(b));
             if (field === 'status') { const o = { unpriced: 0, stale: 1, priced: 2 }; return (o[getRowStatus(a)]??2) - (o[getRowStatus(b)]??2); }
-            if (field === 'locRR') return m * ((b.locations?.['Ready Room']||0) - (a.locations?.['Ready Room']||0));
-            if (field === 'locProc') return m * ((b.locations?.['Processing']||0) - (a.locations?.['Processing']||0));
             return 0;
         });
 
@@ -2208,7 +2204,6 @@
                     <div class="cell-model-sub">${escHtml(g.brand)}</div>
                 </td>
                 <td class="cell-storage">${escHtml(g.storage)}</td>
-                <td class="cell-location"><span class="loc-badge loc-rr" title="Ready Room">RR ${g.locations?.['Ready Room']||0}</span> <span class="loc-badge loc-proc" title="Processing">P ${g.locations?.['Processing']||0}</span></td>
                 <td><div class="grade-display">${grades}</div></td>
                 <td class="cell-total">${g.total}</td>
                 <td class="price-cell">
