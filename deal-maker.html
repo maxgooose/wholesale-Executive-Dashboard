@@ -24,7 +24,7 @@
         /* ── Add Item Form ─────────────────── */
         .add-form { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
         .add-form h2 { font-size: 15px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
-        .form-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
+        .form-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
         .form-group { display: flex; flex-direction: column; gap: 4px; }
         .form-group label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
         .form-group input, .form-group select { padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; }
@@ -207,6 +207,12 @@
                     </select>
                 </div>
                 <div class="form-group">
+                    <label>Color</label>
+                    <select id="colorSelect">
+                        <option value="">Any</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label>Quantity</label>
                     <input type="number" id="qtyInput" min="1" value="1" placeholder="Qty">
                 </div>
@@ -236,6 +242,7 @@
                             <th>Model</th>
                             <th>Storage</th>
                             <th>Grade</th>
+                            <th>Color</th>
                             <th class="col-qty">Qty</th>
                             <th class="col-price">Price</th>
                             <th class="col-subtotal">Subtotal</th>
@@ -341,13 +348,15 @@
             const storage = item.STORAGE || item.storage || 'N/A';
             const grade = item.GRADE || item.grade || '';
             if (grade === 'D' || grade === 'Damaged' || grade === 'Defective') return;
+            const color = item.COLOR || item.color || '';
             const key = `${model}|${storage}`;
             if (!map.has(key)) {
-                map.set(key, { key, model, storage, grades: { A: 0, B: 0, C: 0, 'C (AMZ)': 0 }, total: 0 });
+                map.set(key, { key, model, storage, grades: { A: 0, B: 0, C: 0, 'C (AMZ)': 0 }, colors: {}, total: 0 });
             }
             const g = map.get(key);
             if (g.grades.hasOwnProperty(grade)) g.grades[grade]++;
             else g.grades['C']++;
+            if (color) g.colors[color] = (g.colors[color] || 0) + 1;
             g.total++;
         });
         inventoryGroups = Array.from(map.values()).filter(g => g.total > 0);
@@ -397,6 +406,28 @@
         document.getElementById('modelSearch').value = `${selectedGroup.model} — ${selectedGroup.storage}`;
         closeDropdown();
         document.getElementById('addBtn').disabled = false;
+
+        // Populate grade dropdown with available grades
+        const gradeSelect = document.getElementById('gradeSelect');
+        gradeSelect.innerHTML = '';
+        ['A', 'B', 'C', 'C (AMZ)'].forEach(g => {
+            if (selectedGroup.grades[g] > 0) {
+                const opt = document.createElement('option');
+                opt.value = g; opt.textContent = `${g} (${selectedGroup.grades[g]})`;
+                gradeSelect.appendChild(opt);
+            }
+        });
+
+        // Populate color dropdown
+        const colorSelect = document.getElementById('colorSelect');
+        colorSelect.innerHTML = '<option value="">Any</option>';
+        const colors = selectedGroup.colors || {};
+        Object.keys(colors).sort().forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c; opt.textContent = `${c} (${colors[c]})`;
+            colorSelect.appendChild(opt);
+        });
+
         updateStockHint();
     }
 
@@ -412,6 +443,7 @@
     function addItem() {
         if (!selectedGroup) return;
         const grade = document.getElementById('gradeSelect').value;
+        const color = document.getElementById('colorSelect').value;
         const qty = parseInt(document.getElementById('qtyInput').value) || 1;
         const price = parseFloat(document.getElementById('priceInput').value) || 0;
 
@@ -421,6 +453,7 @@
             model: selectedGroup.model,
             storage: selectedGroup.storage,
             grade,
+            color,
             qty: Math.max(1, qty),
             price,
             available: selectedGroup.grades[grade] || 0
@@ -471,6 +504,7 @@
                 <td>${esc(item.model)}</td>
                 <td>${esc(item.storage)}</td>
                 <td><span class="grade-badge">${esc(item.grade)}</span></td>
+                <td>${item.color ? esc(item.color) : '—'}</td>
                 <td class="col-qty">
                     <input type="number" min="1" value="${item.qty}" onchange="updateQty(${item.id}, this.value)" onfocus="this.select()">
                 </td>
@@ -553,18 +587,18 @@
         wsData.push(['Date', dateStr]);
         if (buyer) wsData.push(['Buyer', buyer]);
         wsData.push([]);
-        wsData.push(['#', 'MODEL', 'STORAGE', 'GRADE', 'QTY', 'PRICE', 'SUBTOTAL']);
+        wsData.push(['#', 'MODEL', 'STORAGE', 'GRADE', 'COLOR', 'QTY', 'PRICE', 'SUBTOTAL']);
 
         let totalUnits = 0, totalValue = 0;
         dealItems.forEach((item, idx) => {
             const sub = item.qty * item.price;
             totalUnits += item.qty;
             totalValue += sub;
-            wsData.push([idx + 1, item.model, item.storage, item.grade, item.qty, item.price > 0 ? item.price : '', sub > 0 ? sub : '']);
+            wsData.push([idx + 1, item.model, item.storage, item.grade, item.color || '', item.qty, item.price > 0 ? item.price : '', sub > 0 ? sub : '']);
         });
 
         wsData.push([]);
-        wsData.push(['', '', '', 'TOTAL', totalUnits, '', totalValue]);
+        wsData.push(['', '', '', '', 'TOTAL', totalUnits, '', totalValue]);
 
         const ws = XLSX.utils.aoa_to_sheet(wsData);
 
@@ -574,6 +608,7 @@
             { wch: 32 },  // Model
             { wch: 10 },  // Storage
             { wch: 10 },  // Grade
+            { wch: 12 },  // Color
             { wch: 8 },   // Qty
             { wch: 10 },  // Price
             { wch: 12 },  // Subtotal

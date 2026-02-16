@@ -1551,6 +1551,45 @@
             </div>
         </div>
 
+        <!-- Deal Search + Add -->
+        <div class="deal-add-section">
+            <div class="deal-add-label">Add Item</div>
+            <div class="deal-search-wrap">
+                <input type="text" id="dealModelSearch" placeholder="Search model..." autocomplete="off" oninput="dealSearchInput()" onfocus="dealSearchInput()">
+                <div class="deal-search-dropdown" id="dealSearchDropdown"></div>
+            </div>
+            <div class="deal-add-row" id="dealAddRow" style="display:none;">
+                <div class="deal-add-selected" id="dealAddSelected"></div>
+                <div class="deal-add-stock" id="dealAddStock"></div>
+                <div class="deal-add-fields">
+                    <div class="deal-add-field">
+                        <label>Grade</label>
+                        <select id="dealGradeSelect">
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="C (AMZ)">C (AMZ)</option>
+                        </select>
+                    </div>
+                    <div class="deal-add-field">
+                        <label>Color</label>
+                        <select id="dealColorSelect">
+                            <option value="">Any</option>
+                        </select>
+                    </div>
+                    <div class="deal-add-field">
+                        <label>Qty</label>
+                        <input type="number" id="dealQtyInput" min="1" value="1">
+                    </div>
+                    <div class="deal-add-field">
+                        <label>Price</label>
+                        <input type="number" id="dealPriceInput" min="0" step="1" placeholder="$">
+                    </div>
+                    <button class="deal-add-btn" onclick="addDealSearchItem()">+</button>
+                </div>
+            </div>
+        </div>
+
         <div class="deal-items-header" id="dealItemsHeader">Items (0)</div>
         <div class="deal-items-list" id="dealItemsList">
             <div class="deal-empty" id="dealEmpty">
@@ -1905,6 +1944,7 @@
             const model = item.MODEL || 'Unknown Model';
             const storage = item.STORAGE || 'N/A';
             const grade = item.GRADE || '';
+            const color = item.COLOR || '';
             if (grade === 'D' || grade === 'Damaged' || grade === 'Defective') return;
             const key = `${model}|${storage}`;
             if (!map.has(key)) {
@@ -1912,6 +1952,7 @@
                 map.set(key, {
                     key, model, storage,
                     grades: { A: 0, B: 0, 'C (AMZ)': 0, C: 0 },
+                    colors: {},
                     price: 0, lastPriceUpdate: null, total: 0,
                     brand: bd.brand, brandType: bd.type,
                     locations: { 'Ready Room': 0, 'Processing': 0 }
@@ -1920,6 +1961,7 @@
             const g = map.get(key);
             if (g.grades.hasOwnProperty(grade)) g.grades[grade]++;
             else g.grades['C']++;
+            if (color) g.colors[color] = (g.colors[color] || 0) + 1;
             g.total++;
             if (g.locations.hasOwnProperty(location)) g.locations[location]++;
         });
@@ -2419,7 +2461,7 @@
                     <button class="deal-item-remove" onclick="toggleDealItem('${escJs(item.key)}')">&times;</button>
                 </div>
                 <div class="deal-item-details">
-                    <span class="avail">${escHtml(item.storage)}${item.grade ? ' · Grade ' + escHtml(item.grade) : ''} &middot; Avail: ${item.maxQty}</span>
+                    <span class="avail">${escHtml(item.storage)}${item.grade ? ' · Grade ' + escHtml(item.grade) : ''}${item.color ? ' · ' + escHtml(item.color) : ''} &middot; Avail: ${item.maxQty}</span>
                     <span>Qty:</span>
                     <input type="number" min="1" max="${item.maxQty}" value="${item.offerQty}"
                         onchange="updateDealQty('${escJs(item.key)}', this.value)"
@@ -2521,17 +2563,39 @@
         document.getElementById('dealAddRow').style.display = 'block';
         document.getElementById('dealPriceInput').value = dealSearchSelected.price > 0 ? dealSearchSelected.price : '';
         document.getElementById('dealQtyInput').value = '1';
+
+        // Populate grade dropdown with only available grades
+        const gradeSelect = document.getElementById('dealGradeSelect');
+        gradeSelect.innerHTML = '';
+        ['A', 'B', 'C', 'C (AMZ)'].forEach(g => {
+            if (gr[g] > 0) {
+                const opt = document.createElement('option');
+                opt.value = g; opt.textContent = `${g} (${gr[g]})`;
+                gradeSelect.appendChild(opt);
+            }
+        });
+
+        // Populate color dropdown
+        const colorSelect = document.getElementById('dealColorSelect');
+        colorSelect.innerHTML = '<option value="">Any</option>';
+        const colors = dealSearchSelected.colors || {};
+        Object.keys(colors).sort().forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c; opt.textContent = `${c} (${colors[c]})`;
+            colorSelect.appendChild(opt);
+        });
     }
 
     function addDealSearchItem() {
         if (!dealSearchSelected) return;
         const grade = document.getElementById('dealGradeSelect').value;
+        const color = document.getElementById('dealColorSelect').value;
         const qty = parseInt(document.getElementById('dealQtyInput').value) || 1;
         const price = parseFloat(document.getElementById('dealPriceInput').value) || dealSearchSelected.price || 0;
         const key = dealSearchSelected.key;
 
-        // Add to dealItems map with grade suffix to allow same model different grades
-        const dealKey = `${key}|${grade}`;
+        // Add to dealItems map with grade+color suffix to allow same model different grades/colors
+        const dealKey = `${key}|${grade}|${color}`;
         if (dealItems.has(dealKey)) {
             // Update existing
             const existing = dealItems.get(dealKey);
@@ -2544,6 +2608,7 @@
                 storage: dealSearchSelected.storage,
                 brand: dealSearchSelected.brand,
                 grade: grade,
+                color: color,
                 maxQty: dealSearchSelected.grades[grade] || dealSearchSelected.total,
                 offerQty: Math.max(1, qty),
                 offerPrice: price,
@@ -2651,6 +2716,7 @@
             model: item.model,
             storage: item.storage,
             grade: item.grade || 'All',
+            color: item.color || '',
             qty: item.offerQty,
             price: item.offerPrice,
             subtotal: item.offerQty * item.offerPrice
