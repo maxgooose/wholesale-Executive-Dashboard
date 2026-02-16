@@ -1716,6 +1716,31 @@
             backgroundSync();
             return;
         }
+
+        // Try local JSON snapshot first (no proxy needed)
+        showLoading(true, 'Loading snapshot...');
+        try {
+            const snapResp = await fetch('data/available-inventory.json');
+            if (snapResp.ok) {
+                const snapData = await snapResp.json();
+                if (snapData.data && snapData.data.length > 0) {
+                    const rawItems = snapData.data;
+                    savePricingCache(rawItems);
+                    const items = WholecellTransformer.transformAll(rawItems);
+                    inventoryGroups = groupInventory(items);
+                    await mergeWithPrices();
+                    lastSyncTime = snapData.metadata?.timestamp ? new Date(snapData.metadata.timestamp) : new Date();
+                    buildFilterChips();
+                    updateSyncInfo(); applyFiltersAndRender(); updateStats(); showLoading(false);
+                    showToast(`Loaded ${rawItems.length.toLocaleString()} items from snapshot`, 'success');
+                    return;
+                }
+            }
+        } catch (e) {
+            console.warn('Local snapshot not available:', e.message);
+        }
+
+        // Fallback to proxy
         showLoading(true, 'Fetching Ready Room + Processing...');
         document.getElementById('loadingDetail').textContent = 'Connecting...';
         const rawItems = await fetchPricingInventory((cur, tot) => {
