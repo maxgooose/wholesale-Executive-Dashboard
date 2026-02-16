@@ -1,0 +1,32 @@
+{
+    "task1_dashboard_data":  {
+                                 "planned":  true,
+                                 "executed":  false,
+                                 "verified":  false
+                             },
+    "task2_unified_header":  {
+                                 "planned":  false,
+                                 "executed":  false,
+                                 "verified":  false
+                             },
+    "task3_sort_location":  {
+                                "planned":  false,
+                                "executed":  false,
+                                "verified":  false
+                            },
+    "task4_incremental_sync":  {
+                                   "planned":  false,
+                                   "executed":  false,
+                                   "verified":  false
+                               },
+    "task5_past_deals_save":  {
+                                  "planned":  false,
+                                  "executed":  false,
+                                  "verified":  false
+                              },
+    "task6_pricing_history":  {
+                                  "planned":  false,
+                                  "executed":  false,
+                                  "verified":  false
+                              }
+}
