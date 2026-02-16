@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marketing — Universal Cellular</title>
+    <link rel="stylesheet" href="styles/theme.css">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: var(--font-display); background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
+        .container { max-width: 720px; margin: 0 auto; padding: 80px 24px; text-align: center; }
+        .badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; background: var(--accent-subtle); color: var(--accent); margin-bottom: 24px; }
+        h1 { font-size: 28px; font-weight: 700; margin-bottom: 12px; }
+        .desc { font-size: 16px; color: var(--text-secondary); line-height: 1.7; max-width: 520px; margin: 0 auto 40px; }
+        .features { display: flex; flex-direction: column; gap: 16px; max-width: 400px; margin: 0 auto; text-align: left; }
+        .feature { display: flex; align-items: center; gap: 14px; padding: 16px 20px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; }
+        .feature-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--bg-secondary); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+        .feature-text { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+        .feature-text span { display: block; font-size: 12px; color: var(--text-muted); font-weight: 400; margin-top: 2px; }
+    </style>
+</head>
+<body>
+    <header class="header no-print">
+        <div class="header-inner">
+            <div class="header-brand">
+                <div class="header-logo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                </div>
+                <div>
+                    <div class="header-title">Universal</div>
+                    <div class="header-subtitle">Executive Dashboard</div>
+                </div>
+            </div>
+            <nav class="header-nav">
+                <a href="dashboard_standalone.html" class="nav-link">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    Dashboard
+                </a>
+                <a href="data-manager.html" class="nav-link">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
+                    Data Manager
+                </a>
+                <a href="pricing-manager.html" class="nav-link">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Pricing
+                </a>
+                <a href="marketing.html" class="nav-link active">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
+                    Marketing
+                </a>
+            </nav>
+            <div class="header-actions"></div>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="badge">Coming Soon</div>
+        <h1>Marketing</h1>
+        <p class="desc">Next to be worked on. Will include voice agents calling/messaging leads and much needed branding work.</p>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">📞</div>
+                <div class="feature-text">Voice Agents<span>AI-powered outbound calls to leads</span></div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">💬</div>
+                <div class="feature-text">Lead Messaging<span>Automated SMS & email outreach</span></div>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🎨</div>
+                <div class="feature-text">Branding<span>Visual identity & marketing materials</span></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="scripts/theme-switcher.js"></script>
+</body>
+</html>
