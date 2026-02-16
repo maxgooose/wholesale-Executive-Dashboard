@@ -740,7 +740,7 @@
                             const transformedItems = WholecellTransformer.transformAll(rawData.data);
                             allInventoryData = transformedItems;
                             inventoryData = transformedItems;
-                            document.getElementById('lastUpdated').textContent = `Data Source: Wholecell Snapshot (${rawData.count || rawData.data.length} items)`;
+                            document.getElementById('lastUpdated').textContent = `${rawData.count || rawData.data.length} items loaded`;
                             populateLocationFilter();
                             updateDashboard();
                             return;

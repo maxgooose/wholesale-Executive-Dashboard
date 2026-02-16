@@ -699,7 +699,7 @@
                     if (rawData.data && Array.isArray(rawData.data) && rawData.data.length > 0) {
                         const transformedItems = WholecellTransformer.transformAll(rawData.data);
                         inventoryData = transformedItems;
-                        document.getElementById('lastUpdated').textContent = `Data Source: Wholecell Snapshot (${rawData.count || rawData.data.length} items)`;
+                        document.getElementById('lastUpdated').textContent = `${rawData.count || rawData.data.length} items loaded`;
                         updateDashboard();
                         return;
                     }

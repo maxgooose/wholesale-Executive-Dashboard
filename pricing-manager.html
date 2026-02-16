@@ -1314,16 +1314,7 @@
                 </a>
             </nav>
 
-            <div class="header-actions">
-                <button class="theme-toggle" onclick="themeToggle()" title="Toggle theme">
-                    <svg class="icon-sun" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-                    </svg>
-                    <svg class="icon-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-                    </svg>
-                </button>
-            </div>
+            <div class="header-actions"></div>
         </div>
     </header>
 
@@ -1856,13 +1847,13 @@
             lastSyncTime = new Date(parseInt(localStorage.getItem(PRICING_CACHE_TS_KEY)));
             buildFilterChips();
             updateSyncInfo(); applyFiltersAndRender(); updateStats(); showLoading(false);
-            showToast(`Loaded from cache — ${inventoryGroups.length} model groups`, 'success');
+            // silently loaded from cache
             backgroundSync();
             return;
         }
 
         // Try local JSON snapshot first (no proxy needed)
-        showLoading(true, 'Loading snapshot...');
+        showLoading(true, 'Loading data...');
         try {
             const snapResp = await fetch('data/available-inventory.json');
             if (snapResp.ok) {
@@ -1876,7 +1867,7 @@
                     lastSyncTime = snapData.metadata?.timestamp ? new Date(snapData.metadata.timestamp) : new Date();
                     buildFilterChips();
                     updateSyncInfo(); applyFiltersAndRender(); updateStats(); showLoading(false);
-                    showToast(`Loaded ${rawItems.length.toLocaleString()} items from snapshot`, 'success');
+                    // silently loaded
                     return;
                 }
             }
