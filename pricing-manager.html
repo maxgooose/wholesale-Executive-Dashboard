@@ -2397,36 +2397,47 @@
     }
 
     function toggleDealItem(key) {
-        if (dealItems.has(key)) {
-            dealItems.delete(key);
-        } else {
-            const group = inventoryGroups.find(g => g.key === key);
-            if (!group) return;
-            dealItems.set(key, {
-                key: group.key,
-                model: group.model,
-                storage: group.storage,
-                brand: group.brand,
-                maxQty: group.total,
-                offerQty: group.total,
-                offerPrice: group.price || 0,
-                grades: { ...group.grades }
-            });
-            if (!dealPanelOpen) openDealPanel();
+        // If item is already in deal, remove it
+        // Find all deal keys that start with this base key
+        const matchingKeys = Array.from(dealItems.keys()).filter(k => k.startsWith(key + '|') || k === key);
+        if (matchingKeys.length > 0) {
+            matchingKeys.forEach(k => dealItems.delete(k));
+            renderDealItems();
+            updateDealBadge();
+            saveDealState();
+            updateRowDealButton(key);
+            return;
         }
-        renderDealItems();
-        updateDealBadge();
-        saveDealState();
-        const row = document.querySelector(`tr[data-key="${CSS.escape(key)}"]`);
-        if (row) {
-            const btn = row.querySelector('.add-deal-btn');
-            if (btn) {
-                const inDeal = dealItems.has(key);
-                btn.className = 'add-deal-btn ' + (inDeal ? 'in-deal' : '');
-                btn.textContent = inDeal ? '✓' : '+';
-                btn.title = inDeal ? 'Remove from deal' : 'Add to deal';
-            }
+
+        // If there's an uncommitted selection in the form, warn user
+        if (dealSearchSelected) {
+            const proceed = confirm(`You have "${dealSearchSelected.model}" selected but not added.\n\nDiscard it and select a new model?`);
+            if (!proceed) return;
+            // Clear current selection
+            dealSearchSelected = null;
+            dealSelectedGrade = '';
+            dealSelectedColor = '';
+            document.getElementById('dealAddRow').style.display = 'none';
+            document.getElementById('dealAddPreview').textContent = '';
+            document.getElementById('dealAddBtn').disabled = true;
         }
+
+        // Open deal panel and populate the selection form (don't auto-add)
+        const group = inventoryGroups.find(g => g.key === key);
+        if (!group) return;
+        if (!dealPanelOpen) openDealPanel();
+        selectDealModel(key, true);
+    }
+
+    function updateRowDealButton(baseKey) {
+        const row = document.querySelector(`tr[data-key="${CSS.escape(baseKey)}"]`);
+        if (!row) return;
+        const btn = row.querySelector('.add-deal-btn');
+        if (!btn) return;
+        const inDeal = Array.from(dealItems.keys()).some(k => k.startsWith(baseKey + '|') || k === baseKey);
+        btn.className = 'add-deal-btn ' + (inDeal ? 'in-deal' : '');
+        btn.textContent = inDeal ? '✓' : '+';
+        btn.title = inDeal ? 'Remove from deal' : 'Add to deal';
     }
 
     function renderDealItems() {
@@ -2558,7 +2569,12 @@
         dd.classList.add('visible');
     }
 
-    function selectDealModel(key) {
+    function selectDealModel(key, skipGuard) {
+        // Guard: if there's already an uncommitted selection from search dropdown
+        if (!skipGuard && dealSearchSelected && dealSearchSelected.key !== key) {
+            const proceed = confirm(`You have "${dealSearchSelected.model}" selected but not added.\n\nDiscard it and select a new model?`);
+            if (!proceed) return;
+        }
         dealSearchSelected = inventoryGroups.find(g => g.key === key);
         if (!dealSearchSelected) return;
         document.getElementById('dealSearchDropdown').classList.remove('visible');
@@ -2666,6 +2682,10 @@
             });
             if (!dealPanelOpen) openDealPanel();
         }
+
+        // Update table row button
+        const baseKey = key;
+        updateRowDealButton(baseKey);
 
         // Reset and refocus for rapid multi-add
         dealSearchSelected = null;
