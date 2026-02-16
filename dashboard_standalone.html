@@ -686,33 +686,21 @@
 
         async function loadData() {
             try {
-                // Priority 1: Load from cached API (Vercel Blob, instant)
-                try {
-                    const response = await fetch('/api/inventory');
-                    if (response.ok) {
-                        const rawData = await response.json();
-                        if (rawData.items && Array.isArray(rawData.items)) {
-                            const transformedItems = WholecellTransformer.transformAll(rawData.items);
-                            inventoryData = transformedItems;
-
-                            if (rawData.metadata && rawData.metadata.timestamp) {
-                                const date = new Date(rawData.metadata.timestamp);
-                                document.getElementById('lastUpdated').textContent = `Synced: ${date.toLocaleString()}`;
-                            }
-
-                            updateDashboard();
-                            return;
-                        }
+                // Load from local available-inventory.json snapshot
+                const response = await fetch('data/available-inventory.json');
+                if (response.ok) {
+                    const rawData = await response.json();
+                    if (rawData.data && Array.isArray(rawData.data) && rawData.data.length > 0) {
+                        const transformedItems = WholecellTransformer.transformAll(rawData.data);
+                        inventoryData = transformedItems;
+                        document.getElementById('lastUpdated').textContent = `Data Source: Wholecell Snapshot (${rawData.count || rawData.data.length} items)`;
+                        updateDashboard();
+                        return;
                     }
-                } catch (e) {
-                    console.warn('Could not load from /api/inventory, trying fallback:', e.message);
                 }
-
-                // Priority 2: Fallback to combined_details.json
-                const response = await fetch('combined_details.json');
-                inventoryData = await response.json();
+                console.error('Failed to load inventory data');
+                inventoryData = [];
                 updateDashboard();
-                updateLastUpdated();
             } catch (error) {
                 console.error('Error loading data:', error);
                 inventoryData = [];

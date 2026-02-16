@@ -643,7 +643,7 @@
 
     <!-- Data & Scripts -->
     <script src="wholecell-transformer.js"></script>
-    <script src="combined_details.preloaded.js"></script>
+    <!-- preloaded.js removed — data loads from data/available-inventory.json -->
     <script>
         let inventoryData = [];
         let allInventoryData = []; // unfiltered copy
@@ -744,39 +744,11 @@
                     console.warn('Could not load local snapshot, trying backup...', e);
                 }
 
-                // Priority 2: Try the WholeCell backup in assets
-                try {
-                    const response = await fetch('assets/wholecell-data-backup-2025-11-24.json');
-                    if (response.ok) {
-                        const rawData = await response.json();
-                        const transformedItems = WholecellTransformer.transformAll(rawData.items);
-                        allInventoryData = transformedItems;
-                        inventoryData = transformedItems;
-                        if (rawData.metadata && rawData.metadata.timestamp) {
-                            const date = new Date(rawData.metadata.timestamp);
-                            document.getElementById('lastUpdated').textContent = `Data Source: WholeCell Export (${date.toLocaleString()})`;
-                        }
-                        populateLocationFilter();
-                        updateDashboard();
-                        return;
-                    }
-                } catch (e) {
-                    console.warn('Could not load WholeCell backup, falling back to preloaded/combined data', e);
-                }
-
-                // Priority 3: Fallback to existing data sources
-                if (Array.isArray(window.__PRELOADED_INVENTORY__)) {
-                    allInventoryData = window.__PRELOADED_INVENTORY__;
-                    inventoryData = window.__PRELOADED_INVENTORY__;
-                } else {
-                    const response = await fetch('combined_details.json');
-                    const data = await response.json();
-                    allInventoryData = data;
-                    inventoryData = data;
-                }
-                populateLocationFilter();
+                // No additional fallbacks — data/available-inventory.json is the single source
+                console.error('Failed to load inventory data from data/available-inventory.json');
+                allInventoryData = [];
+                inventoryData = [];
                 updateDashboard();
-                updateLastUpdated();
             } catch (error) {
                 console.error('Error loading data:', error);
                 allInventoryData = [];
