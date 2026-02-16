@@ -42,3 +42,4 @@ data/combined_details.preloaded.js.OLD
 
 # Proxy logs
 proxy-server.log
+.vercel

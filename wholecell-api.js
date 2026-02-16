@@ -112,16 +112,19 @@ class WholecellAPI {
      */
     async _fetchAllPages(statusFilter, onProgress, maxPages = null) {
         try {
-            // Try proxy first, fall back to local JSON snapshot
+            // Try local JSON snapshot first (fast, no proxy needed)
+            const localData = await this._loadLocalData();
+            if (localData && localData.length > 0) {
+                console.log(`Loaded ${localData.length} items from local snapshot`);
+                if (onProgress) onProgress(1, 1);
+                return localData;
+            }
+
+            // Fall back to proxy if no local data
+            console.log('No local data, trying proxy...');
             const proxyHealthy = await this.checkHealth();
             if (!proxyHealthy) {
-                console.log('Proxy not available, trying local data snapshot...');
-                const localData = await this._loadLocalData();
-                if (localData) {
-                    if (onProgress) onProgress(1, 1);
-                    return localData;
-                }
-                throw new Error('Proxy is down and no local data available');
+                throw new Error('No local data and proxy is not available');
             }
 
             // Build URL with filters

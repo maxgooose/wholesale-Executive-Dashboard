@@ -55,7 +55,15 @@ document.addEventListener('inventoryUpdate', function(event) {
 
 // Load inventory data
 async function loadInventoryData() {
-    // PRIORITY 1: Load from Vercel Blob cache via API route (instant, always fresh)
+    // PRIORITY 1: Load from local JSON snapshot (fastest, no external deps)
+    try {
+        const loaded = await loadFromLocalSnapshot();
+        if (loaded) return;
+    } catch (e) {
+        console.warn('Could not load local snapshot:', e.message);
+    }
+
+    // PRIORITY 2: Load from Vercel Blob cache via API route
     try {
         const loaded = await loadFromCachedAPI();
         if (loaded) return;
@@ -63,13 +71,42 @@ async function loadInventoryData() {
         console.warn('Could not load from /api/inventory:', apiError.message);
     }
 
-    // PRIORITY 2: Load from Wholecell API directly via proxy (slow fallback for local dev)
+    // PRIORITY 3: Load from Wholecell API directly via proxy (slow fallback for local dev)
     try {
         await loadFromWholecell();
     } catch (wholecellError) {
         console.error('Failed to load from Wholecell API:', wholecellError);
         showConnectionError(wholecellError);
     }
+}
+
+// Load from local JSON snapshot file
+async function loadFromLocalSnapshot() {
+    console.log('Trying local snapshot: data/available-inventory.json...');
+    const response = await fetch('data/available-inventory.json');
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const rawData = await response.json();
+    if (!rawData.data || rawData.data.length === 0) throw new Error('Empty data');
+
+    console.log(`Loaded ${rawData.data.length} items from local snapshot`);
+    const transformedData = WholecellTransformer.transformAll(rawData.data);
+    const stats = WholecellTransformer.getTransformStats(rawData.data, transformedData);
+    hydrateInventoryData(transformedData);
+
+    const syncStatus = document.getElementById('wholecellSyncStatus');
+    if (syncStatus) {
+        const date = rawData.metadata?.timestamp
+            ? new Date(rawData.metadata.timestamp).toLocaleString()
+            : 'Unknown';
+        syncStatus.innerHTML = `
+            <span class="status-dot online"></span>
+            <span>Snapshot: ${date}</span>
+        `;
+    }
+
+    saveBatchInfo('local_snapshot');
+    showNotification(`Loaded ${stats.valid} items from snapshot`);
+    return true;
 }
 
 // Load from Vercel Blob cache via the API route
