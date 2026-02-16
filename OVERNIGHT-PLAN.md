@@ -106,10 +106,75 @@ Data loading works. This task is cleanup only — removing dead code and alignin
 ### No Blockers
 All CSS comes from `styles/theme.css`. Header HTML is self-contained. Straightforward copy-paste with active class adjustment per page.
 
-## Task 3: Sorting Manager — Sort by Location
-- Add location-based sorting in sorting manager
-- WholeCell data has location field (e.g., "Ready Room")
-- Need to surface this in the UI
+## Task 3: Sort by Location ✅ PLANNED
+
+### Data Analysis
+- **9,692 items** total in `data/available-inventory.json`
+- **2 unique locations:** `Ready Room`, `Processing`
+- **1 warehouse:** `Main Warehouse`
+- Data structure: `item.location.name` in raw JSON → transformed to `item.location` (string) by WholecellTransformer
+- Both `deal-maker.html` and `pricing-manager.html` already have `ALLOWED_LOCATIONS = ['Ready Room', 'Processing']`
+
+### Current State — Location Awareness Per Page
+| Page | Location Filter | Location in Table | Location Sorting |
+|------|----------------|-------------------|-----------------|
+| `index.html` (dashboard) | ✅ Dropdown filter | ❌ | ❌ |
+| `pricing-manager.html` | ❌ | ❌ | ❌ |
+| `deal-maker.html` | ❌ (filters silently) | ❌ | ❌ |
+| `data-manager.html` | ❌ | ❌ | ❌ |
+
+### Problem
+`pricing-manager.html` groups inventory by `model|storage` but **discards location data** during grouping (line ~1900). A model+storage combo could have units split across Ready Room and Processing — the manager can't see this breakdown.
+
+### Plan
+
+**Option A (Recommended): Add Location Filter + Column to Pricing Manager**
+
+1. **Modify `groupInventory()` in pricing-manager.html** — Track per-location counts in each group:
+   ```js
+   // Add to group object:
+   locations: { 'Ready Room': 0, 'Processing': 0 }
+   // Increment during grouping:
+   g.locations[location] = (g.locations[location] || 0) + 1;
+   ```
+
+2. **Add Location filter chip/dropdown** in the filter sidebar (after Storage chips, before Price Range):
+   ```html
+   <div class="filter-section">
+       <label>Location</label>
+       <div class="chip-grid" id="locationChips"></div>
+   </div>
+   ```
+   - Chips: "Ready Room (N)", "Processing (N)" — clickable like brand/storage chips
+   - Filter logic: when a location is selected, only show groups that have units in that location
+
+3. **Add Location column to table** — Between the Model/Storage columns and Grade columns:
+   - Show location breakdown: "RR: 5 / Proc: 2" or use colored badges
+   - Keep it compact since table already has many columns
+
+4. **Add "Location" sort option** to Sort By dropdown:
+   ```html
+   <option value="location-rr">Ready Room First</option>
+   <option value="location-proc">Processing First</option>
+   ```
+   - Sorts by count of items in that location (descending)
+
+**Option B (Simpler): Location Filter Only**
+- Just add the chip filter, no column or sort. Quickest win.
+
+### Recommendation: Go with Option A
+It's a complete solution. The pricing manager is where Harb sets prices — knowing whether units are in Ready Room vs Processing helps him prioritize what's actually ready to sell.
+
+### Files to Change
+| File | Change | Risk |
+|------|--------|------|
+| `pricing-manager.html` ~line 1900 | Modify `groupInventory()` to track location counts | Low — additive change |
+| `pricing-manager.html` ~line 1400 | Add Location filter section in sidebar HTML | Low |
+| `pricing-manager.html` ~line 1384 | Add location sort options to Sort By dropdown | Low |
+| `pricing-manager.html` render function | Add Location column to table rows | Medium — table layout shift |
+
+### No Blockers
+Data is available. Location field is already extracted by the transformer. Just needs UI exposure.
 
 ## Task 4: Incremental Inventory Sync
 - Explore WholeCell API for date-based/updated endpoints

@@ -18,7 +18,9 @@
         "verification_notes": "All 6 pages use canonical <header class='header'> with 5 nav links (Dashboard, Data Manager, Pricing, Deal Maker, Assistant). Active states correct per page. Removed dead .global-nav CSS from pricing-manager.html. assistant.html and settings.html are 404 (not deployed — only ai-chat.html exists)."
     },
     "task3_sort_location": {
-        "planned": false,
+        "planned": true,
+        "planned_at": "2026-02-16T03:55:00-08:00",
+        "plan_notes": "2 locations found (Ready Room, Processing). pricing-manager.html needs: location tracking in groupInventory(), location filter chips, location column in table, location sort options. Additive changes only.",
         "executed": false,
         "verified": false
     },
