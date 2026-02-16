@@ -1324,13 +1324,6 @@
     <nav class="global-nav">
         <div class="global-nav-inner">
             <div class="global-nav-brand">
-                <div class="global-nav-logo">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                    </svg>
-                </div>
                 <div>
                     <div class="global-nav-title">Universal</div>
                     <div class="global-nav-subtitle">Executive Dashboard</div>
@@ -1384,8 +1377,13 @@
 
             <div class="separator"></div>
 
+            <!-- Past Deals -->
+            <button class="icon-btn" id="pastDealsToggleBtn" onclick="openPastDealsModal()" title="Past Deals">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </button>
+
             <!-- Deal Builder -->
-            <button class="icon-btn" id="dealToggleBtn" onclick="toggleDealPanel()" title="Deal Builder">
+            <button class="icon-btn" id="dealToggleBtn" onclick="toggleDealPanel()" title="New Deal">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                 <span class="badge" id="dealBadge">0</span>
             </button>
@@ -1599,12 +1597,19 @@
                 Export Offer
             </button>
         </div>
-        <div class="deal-history-divider"></div>
-        <button class="btn btn-ghost past-deals-btn" onclick="togglePastDeals()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            Past Deals <span class="past-deals-count" id="pastDealsCount"></span>
-        </button>
-        <div class="past-deals-list" id="pastDealsList" style="display:none;"></div>
+    </div>
+
+    <!-- ═══ Past Deals Modal ═══ -->
+    <div class="modal-overlay" id="pastDealsModal">
+        <div class="modal" style="max-width:600px;max-height:80vh;">
+            <div class="modal-header">
+                <h3>Past Deals</h3>
+                <button class="btn-sm ghost" onclick="closePastDealsModal()" style="font-size:18px;">&times;</button>
+            </div>
+            <div class="modal-body" id="pastDealsModalBody" style="overflow-y:auto;max-height:60vh;padding:16px;">
+                <div class="past-deals-empty">Loading...</div>
+            </div>
+        </div>
     </div>
 
     <!-- ═══ Upload Modal ═══ -->
@@ -2598,7 +2603,7 @@
         csv.push(csvLine(['Date', dateStr]));
         if (buyer) csv.push(csvLine(['Buyer', buyer]));
         csv.push('');
-        csv.push(csvLine(['MODEL', 'STORAGE', 'GRADE', 'AVAILABLE', 'OFFER QTY', 'PRICE', 'SUBTOTAL']));
+        csv.push(csvLine(['MODEL', 'STORAGE', 'GRADE', 'QTY', 'PRICE', 'SUBTOTAL']));
 
         let totalUnits = 0, totalValue = 0;
         dealItems.forEach(item => {
@@ -2608,14 +2613,13 @@
             csv.push(csvLine([
                 item.model, item.storage,
                 item.grade || 'All',
-                item.maxQty,
                 item.offerQty,
                 item.offerPrice > 0 ? item.offerPrice : '',
                 subtotal > 0 ? subtotal : ''
             ]));
         });
         csv.push('');
-        csv.push(csvLine(['', '', '', '', totalUnits, 'TOTAL', totalValue]));
+        csv.push(csvLine(['', '', '', totalUnits, 'TOTAL', totalValue]));
 
         const blob = new Blob(['\uFEFF' + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -2732,8 +2736,45 @@
             if (data.ok) {
                 showToast('Deal deleted', 'success');
                 loadPastDeals();
+                loadPastDealsModal();
             }
         }).catch(err => console.warn('Delete deal failed:', err));
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       PAST DEALS MODAL (top bar button)
+       ══════════════════════════════════════════════════════════ */
+    function openPastDealsModal() {
+        document.getElementById('pastDealsModal').classList.add('visible');
+        loadPastDealsModal();
+    }
+    function closePastDealsModal() {
+        document.getElementById('pastDealsModal').classList.remove('visible');
+    }
+    function loadPastDealsModal() {
+        const body = document.getElementById('pastDealsModalBody');
+        body.innerHTML = '<div class="past-deals-empty">Loading...</div>';
+        fetch('/api/deals').then(r => r.json()).then(data => {
+            const deals = data.deals || [];
+            if (deals.length === 0) {
+                body.innerHTML = '<div class="past-deals-empty">No past deals yet</div>';
+                return;
+            }
+            body.innerHTML = deals.map(d => {
+                const date = new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+                const value = d.total_value > 0 ? '$' + Number(d.total_value).toLocaleString() : '$0';
+                return `<div class="past-deal-card">
+                    <div class="pd-top"><span class="pd-name">${escHtml(d.deal_name)}</span><span class="pd-date">${date}</span></div>
+                    <div class="pd-meta"><span>${d.total_units} units</span><span>${value}</span>${d.buyer ? `<span>${escHtml(d.buyer)}</span>` : ''}</div>
+                    <div class="pd-actions">
+                        <button class="pd-btn" onclick="loadDeal(${d.id});closePastDealsModal()">Load</button>
+                        <button class="pd-btn danger" onclick="deleteDeal(${d.id})">Delete</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }).catch(() => {
+            body.innerHTML = '<div class="past-deals-empty">Failed to load deals</div>';
+        });
     }
 
     /* ══════════════════════════════════════════════════════════
