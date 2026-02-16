@@ -21,8 +21,12 @@
         "planned": true,
         "planned_at": "2026-02-16T03:55:00-08:00",
         "plan_notes": "2 locations found (Ready Room, Processing). pricing-manager.html needs: location tracking in groupInventory(), location filter chips, location column in table, location sort options. Additive changes only.",
-        "executed": false,
-        "verified": false
+        "executed": true,
+        "executed_at": "2026-02-16T04:25:00-08:00",
+        "execution_notes": "Added location tracking in groupInventory() (per-group Ready Room/Processing counts). Added Location filter chips in filter popover. Added Location column with colored RR/P badges between Storage and Grades. Added 'Ready Room First' and 'Processing First' sort options. Wired up activeLocations set with filter, clear, preset, and active filter tag support. Committed 611446d, pushed, deployed to production.",
+        "verified": true,
+        "verified_at": "2026-02-16T04:45:00-08:00",
+        "verification_notes": "Live site confirmed: Location column shows RR/P badges for all 367 models. Sort dropdown has 'Ready Room First' and 'Processing First' options. Location filter chips show Ready Room (2935) and Processing (5922). All working."
     },
     "task4_incremental_sync": {
         "planned": false,
