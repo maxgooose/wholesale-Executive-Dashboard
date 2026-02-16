@@ -559,6 +559,11 @@
             color: var(--text-tertiary);
         }
 
+        .cell-location { white-space: nowrap; font-size: 11px; }
+        .loc-badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-weight: 600; font-family: var(--font-mono); }
+        .loc-badge.loc-rr { background: rgba(34,197,94,0.15); color: #22c55e; }
+        .loc-badge.loc-proc { background: rgba(234,179,8,0.15); color: #eab308; }
+
         /* Compact grade display */
         .grade-display {
             display: flex;
@@ -1389,6 +1394,8 @@
                     <option value="value-desc">Value: High to Low</option>
                     <option value="value-asc">Value: Low to High</option>
                     <option value="status-asc">Unpriced First</option>
+                    <option value="locRR-desc">Ready Room First</option>
+                    <option value="locProc-desc">Processing First</option>
                 </select>
             </div>
             <div class="filter-section">
@@ -1398,6 +1405,10 @@
             <div class="filter-section">
                 <label>Storage</label>
                 <div class="chip-grid" id="storageChips"></div>
+            </div>
+            <div class="filter-section">
+                <label>Location</label>
+                <div class="chip-grid" id="locationChips"></div>
             </div>
             <div class="filter-section">
                 <label>Price Range ($)</label>
@@ -1485,6 +1496,7 @@
                     <th style="width:32px;"><input type="checkbox" id="selectAll" class="row-checkbox" onchange="toggleSelectAll()"></th>
                     <th>Model</th>
                     <th>Storage</th>
+                    <th>Location</th>
                     <th>Grades</th>
                     <th style="text-align:center;">Qty</th>
                     <th style="text-align:center;">Price</th>
@@ -1711,6 +1723,7 @@
 
     let activeBrands = new Set();
     let activeStorages = new Set();
+    let activeLocations = new Set();
     let allBrands = {};
     let allStorages = {};
 
@@ -1902,13 +1915,15 @@
                     key, model, storage,
                     grades: { A: 0, B: 0, 'C (AMZ)': 0, C: 0 },
                     price: 0, lastPriceUpdate: null, total: 0,
-                    brand: bd.brand, brandType: bd.type
+                    brand: bd.brand, brandType: bd.type,
+                    locations: { 'Ready Room': 0, 'Processing': 0 }
                 });
             }
             const g = map.get(key);
             if (g.grades.hasOwnProperty(grade)) g.grades[grade]++;
             else g.grades['C']++;
             g.total++;
+            if (g.locations.hasOwnProperty(location)) g.locations[location]++;
         });
         return Array.from(map.values()).filter(g => g.total > 0);
     }
@@ -1959,7 +1974,7 @@
 
     function updateFilterButtonState() {
         const btn = document.getElementById('filterToggleBtn');
-        const hasFilters = activeBrands.size > 0 || activeStorages.size > 0 ||
+        const hasFilters = activeBrands.size > 0 || activeStorages.size > 0 || activeLocations.size > 0 ||
             document.getElementById('statusFilter').value !== 'all' ||
             document.getElementById('priceMin').value || document.getElementById('priceMax').value ||
             document.getElementById('qtyMin').value || document.getElementById('qtyMax').value;
@@ -1972,9 +1987,15 @@
     function buildFilterChips() {
         allBrands = {};
         allStorages = {};
+        let allLocations = { 'Ready Room': 0, 'Processing': 0 };
         inventoryGroups.forEach(g => {
             allBrands[g.brand] = (allBrands[g.brand] || 0) + 1;
             allStorages[g.storage] = (allStorages[g.storage] || 0) + 1;
+            if (g.locations) {
+                ALLOWED_LOCATIONS.forEach(loc => {
+                    if (g.locations[loc] > 0) allLocations[loc] = (allLocations[loc] || 0) + g.locations[loc];
+                });
+            }
         });
 
         const sortedBrands = Object.entries(allBrands).sort((a, b) => b[1] - a[1]);
@@ -1993,6 +2014,11 @@
         storageContainer.innerHTML = sortedStorages.map(([storage, count]) =>
             `<div class="storage-chip ${activeStorages.has(storage) ? 'active' : ''}" onclick="toggleStorageFilter('${escJs(storage)}')">${escHtml(storage)}</div>`
         ).join('');
+
+        const locationContainer = document.getElementById('locationChips');
+        locationContainer.innerHTML = Object.entries(allLocations).map(([loc, count]) =>
+            `<div class="brand-chip ${activeLocations.has(loc) ? 'active' : ''}" onclick="toggleLocationFilter('${escJs(loc)}')">${escHtml(loc)} <span class="chip-count">${count}</span></div>`
+        ).join('');
     }
 
     function toggleBrandFilter(brand) {
@@ -2009,12 +2035,20 @@
         onFilterChange();
     }
 
+    function toggleLocationFilter(loc) {
+        if (activeLocations.has(loc)) activeLocations.delete(loc);
+        else activeLocations.add(loc);
+        buildFilterChips();
+        onFilterChange();
+    }
+
     /* Quick presets */
     function applyPreset() {
         const v = document.getElementById('presetFilter').value;
         if (!v) return;
         activeBrands.clear();
         activeStorages.clear();
+        activeLocations.clear();
         document.getElementById('priceMin').value = '';
         document.getElementById('priceMax').value = '';
         document.getElementById('qtyMin').value = '';
@@ -2064,6 +2098,10 @@
             }
             if (activeBrands.size > 0 && !activeBrands.has(g.brand)) return false;
             if (activeStorages.size > 0 && !activeStorages.has(g.storage)) return false;
+            if (activeLocations.size > 0) {
+                const hasMatchingLocation = [...activeLocations].some(loc => g.locations && g.locations[loc] > 0);
+                if (!hasMatchingLocation) return false;
+            }
             if (g.price > 0 && (g.price < priceMin || g.price > priceMax)) return false;
             if (priceMin > 0 && g.price <= 0) return false;
             if (g.total < qtyMin || g.total > qtyMax) return false;
@@ -2078,6 +2116,8 @@
             if (field === 'total') return m * (a.total - b.total);
             if (field === 'value') return m * (getRowValue(a) - getRowValue(b));
             if (field === 'status') { const o = { unpriced: 0, stale: 1, priced: 2 }; return (o[getRowStatus(a)]??2) - (o[getRowStatus(b)]??2); }
+            if (field === 'locRR') return m * ((b.locations?.['Ready Room']||0) - (a.locations?.['Ready Room']||0));
+            if (field === 'locProc') return m * ((b.locations?.['Processing']||0) - (a.locations?.['Processing']||0));
             return 0;
         });
 
@@ -2095,6 +2135,7 @@
         const tags = [];
         activeBrands.forEach(b => tags.push({ label: b, type: 'brand', value: b }));
         activeStorages.forEach(s => tags.push({ label: s, type: 'storage', value: s }));
+        activeLocations.forEach(l => tags.push({ label: l, type: 'location', value: l }));
         const pMin = document.getElementById('priceMin').value;
         const pMax = document.getElementById('priceMax').value;
         if (pMin || pMax) tags.push({ label: `$${pMin || '0'} – $${pMax || '∞'}`, type: 'price' });
@@ -2120,6 +2161,7 @@
     function removeFilter(type, value) {
         if (type === 'brand') { activeBrands.delete(value); buildFilterChips(); }
         else if (type === 'storage') { activeStorages.delete(value); buildFilterChips(); }
+        else if (type === 'location') { activeLocations.delete(value); buildFilterChips(); }
         else if (type === 'price') { document.getElementById('priceMin').value = ''; document.getElementById('priceMax').value = ''; }
         else if (type === 'qty') { document.getElementById('qtyMin').value = ''; document.getElementById('qtyMax').value = ''; }
         else if (type === 'search') { document.getElementById('searchInput').value = ''; }
@@ -2130,6 +2172,7 @@
     function clearAllFilters() {
         activeBrands.clear();
         activeStorages.clear();
+        activeLocations.clear();
         document.getElementById('searchInput').value = '';
         document.getElementById('statusFilter').value = 'all';
         document.getElementById('priceMin').value = '';
@@ -2165,6 +2208,7 @@
                     <div class="cell-model-sub">${escHtml(g.brand)}</div>
                 </td>
                 <td class="cell-storage">${escHtml(g.storage)}</td>
+                <td class="cell-location"><span class="loc-badge loc-rr" title="Ready Room">RR ${g.locations?.['Ready Room']||0}</span> <span class="loc-badge loc-proc" title="Processing">P ${g.locations?.['Processing']||0}</span></td>
                 <td><div class="grade-display">${grades}</div></td>
                 <td class="cell-total">${g.total}</td>
                 <td class="price-cell">
