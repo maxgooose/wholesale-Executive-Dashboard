@@ -1498,6 +1498,7 @@
                     <th>Grades</th>
                     <th style="text-align:center;">Qty</th>
                     <th style="text-align:center;">Price</th>
+                    <th style="text-align:center;">Avg Cost</th>
                     <th style="text-align:right;">Value</th>
                     <th style="text-align:center;width:36px;" title="Status"></th>
                     <th style="text-align:center;width:36px;" title="Deal"></th>
@@ -2008,13 +2009,16 @@
                     colors: {},
                     price: 0, lastPriceUpdate: null, total: 0,
                     brand: bd.brand, brandType: bd.type,
-                    locations: locs
+                    locations: locs,
+                    totalCost: 0, costCount: 0
                 });
             }
             const g = map.get(key);
             if (g.grades.hasOwnProperty(grade)) g.grades[grade]++;
             else g.grades['C']++;
             if (color) g.colors[color] = (g.colors[color] || 0) + 1;
+            const itemCost = item.cost || (item.total_price_paid ? item.total_price_paid / 100 : 0);
+            if (itemCost > 0) { g.totalCost += itemCost; g.costCount++; }
             g.total++;
             if (g.locations.hasOwnProperty(location)) g.locations[location]++;
         });
@@ -2310,6 +2314,7 @@
                             onblur="handlePriceBlur(this)" onkeydown="handlePriceKey(event, this)" placeholder="—">
                     </div>
                 </td>
+                <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);">${g.costCount > 0 ? '$' + Math.round(g.totalCost / g.costCount).toLocaleString() : '—'}</td>
                 <td class="cell-value ${value === 0 ? 'no-value' : ''}">${value > 0 ? '$' + value.toLocaleString() : '—'}</td>
                 <td style="text-align:center"><span class="status-dot ${status}" title="${status}"></span></td>
                 <td style="text-align:center"><button class="add-deal-btn ${inDeal ? 'in-deal' : ''}" onclick="toggleDealItem('${escJs(key)}')" title="${inDeal ? 'Remove from deal' : 'Add to deal'}">${inDeal ? '✓' : '+'}</button></td>
@@ -3155,7 +3160,7 @@
         wsData.push(['Date', dateStr]);
         wsData.push(['Items', rows.length, 'Total Units', rows.reduce((s, g) => s + g.total, 0)]);
         wsData.push([]);
-        wsData.push(['MODEL', 'STORAGE', 'BRAND', 'A', 'B', 'C (AMZ)', 'C', 'TOTAL', 'PRICE', 'VALUE',
+        wsData.push(['MODEL', 'STORAGE', 'BRAND', 'A', 'B', 'C (AMZ)', 'C', 'TOTAL', 'PRICE', 'AVG COST', 'VALUE',
             'Ready Room', 'Processing', 'Receiving', 'Damaged', 'Locked', 'Inbound']);
 
         let totalUnits = 0, totalValue = 0;
@@ -3164,10 +3169,11 @@
             totalUnits += g.total;
             totalValue += val;
             const loc = g.locations || {};
+            const avgCost = g.costCount > 0 ? Math.round(g.totalCost / g.costCount) : '';
             wsData.push([
                 g.model, g.storage, g.brand,
                 g.grades.A || '', g.grades.B || '', g.grades['C (AMZ)'] || '', g.grades.C || '',
-                g.total, g.price > 0 ? g.price : '', val > 0 ? val : '',
+                g.total, g.price > 0 ? g.price : '', avgCost, val > 0 ? val : '',
                 loc['Ready Room'] || '', loc['Processing'] || '', loc['Receiving'] || '',
                 loc['Damaged'] || '', loc['Locked'] || '', loc['Inbound'] || ''
             ]);
