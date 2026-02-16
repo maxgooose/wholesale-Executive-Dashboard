@@ -2463,17 +2463,8 @@
     }
 
     function toggleDealItem(key) {
-        // If item is already in deal, remove it
-        // Find all deal keys that start with this base key
-        const matchingKeys = Array.from(dealItems.keys()).filter(k => k.startsWith(key + '|') || k === key);
-        if (matchingKeys.length > 0) {
-            matchingKeys.forEach(k => dealItems.delete(k));
-            renderDealItems();
-            updateDealBadge();
-            saveDealState();
-            updateRowDealButton(key);
-            return;
-        }
+        // Always open the form to add another grade/color — even if model already in deal
+        // (User can remove individual entries from the deal panel itself)
 
         // If there's an uncommitted selection in the form, warn user
         if (dealSearchSelected) {
