@@ -1,52 +1,54 @@
 {
-    "task1_dashboard_data": {
-        "planned": true,
-        "executed": true,
-        "verified": true,
-        "verified_at": "2026-02-16T02:35:00-08:00",
-        "verification_notes": "Live site renders 9,692 items, $895K est value, all charts loading. Data source: Wholecell Snapshot."
-    },
-    "task2_unified_header": {
-        "planned": true,
-        "planned_at": "2026-02-16T02:50:00-08:00",
-        "plan_notes": "3 header systems found. 4 pages already correct. deal-maker.html and pricing-manager.html need replacement. All 6 pages need Deal Maker nav link added.",
-        "executed": true,
-        "executed_at": "2026-02-16T03:20:00-08:00",
-        "execution_notes": "All 6 pages now use canonical header with 5 nav links (Dashboard, Data Manager, Pricing, Deal Maker, Assistant). Removed custom gnav CSS from deal-maker.html, replaced global-nav in pricing-manager.html. Updated CSS selectors referencing .global-nav to .header. Deployed to production.",
-        "verified": true,
-        "verified_at": "2026-02-16T03:40:00-08:00",
-        "verification_notes": "All 6 pages use canonical <header class='header'> with 5 nav links (Dashboard, Data Manager, Pricing, Deal Maker, Assistant). Active states correct per page. Removed dead .global-nav CSS from pricing-manager.html. assistant.html and settings.html are 404 (not deployed — only ai-chat.html exists)."
-    },
-    "task3_sort_location": {
-        "planned": true,
-        "planned_at": "2026-02-16T03:55:00-08:00",
-        "plan_notes": "2 locations found (Ready Room, Processing). pricing-manager.html needs: location tracking in groupInventory(), location filter chips, location column in table, location sort options. Additive changes only.",
-        "executed": true,
-        "executed_at": "2026-02-16T04:25:00-08:00",
-        "execution_notes": "Added location tracking in groupInventory() (per-group Ready Room/Processing counts). Added Location filter chips in filter popover. Added Location column with colored RR/P badges between Storage and Grades. Added 'Ready Room First' and 'Processing First' sort options. Wired up activeLocations set with filter, clear, preset, and active filter tag support. Committed 611446d, pushed, deployed to production.",
-        "verified": true,
-        "verified_at": "2026-02-16T04:45:00-08:00",
-        "verification_notes": "Live site confirmed: Location column shows RR/P badges for all 367 models. Sort dropdown has 'Ready Room First' and 'Processing First' options. Location filter chips show Ready Room (2935) and Processing (5922). All working."
-    },
-    "task4_incremental_sync": {
-        "planned": true,
-        "planned_at": "2026-02-16T05:00:00-08:00",
-        "plan_notes": "WholeCell API has NO date filtering (updated_since/updated_at_min silently ignored). Proposed hash-based diff sync: fingerprint each item after sync, compare on next run, track adds/removes/changes, skip blob upload when unchanged.",
-        "executed": true,
-        "executed_at": "2026-02-16T05:25:00-08:00",
-        "execution_notes": "Implemented hash-based diff in sync-wholecell.js: MD5 fingerprint per item (status|location|price|cost|grade|updated_at), diff detection (added/removed/changed), skip Blob upload when unchanged, --diff flag for dry-run mode, auto-cleanup keeps last 20 diffs. Committed 66e93c0, pushed, deployed to production.",
-        "verified": true,
-        "verified_at": "2026-02-16T05:50:00-08:00",
-        "verification_notes": "Hash-based diff logic unit tested (add/remove/change/unchanged all correct). Baseline fingerprint generated from existing 9,692-item inventory. Script correctly: hashes key fields (status|location|price|cost|grade|updated_at), detects adds/removes/changes, skips Blob upload when unchanged, saves diffs to data/sync-diffs/, auto-cleans to 20 diffs. --diff flag works for dry-run mode."
-    },
-    "task5_past_deals_save": {
-        "planned": false,
-        "executed": false,
-        "verified": false
-    },
-    "task6_pricing_history": {
-        "planned": false,
-        "executed": false,
-        "verified": false
-    }
+    "task1_dashboard_data":  {
+                                 "planned":  true,
+                                 "executed":  true,
+                                 "verified":  true,
+                                 "verified_at":  "2026-02-16T02:35:00-08:00",
+                                 "verification_notes":  "Live site renders 9,692 items, $895K est value, all charts loading. Data source: Wholecell Snapshot."
+                             },
+    "task2_unified_header":  {
+                                 "planned":  true,
+                                 "planned_at":  "2026-02-16T02:50:00-08:00",
+                                 "plan_notes":  "3 header systems found. 4 pages already correct. deal-maker.html and pricing-manager.html need replacement. All 6 pages need Deal Maker nav link added.",
+                                 "executed":  true,
+                                 "executed_at":  "2026-02-16T03:20:00-08:00",
+                                 "execution_notes":  "All 6 pages now use canonical header with 5 nav links (Dashboard, Data Manager, Pricing, Deal Maker, Assistant). Removed custom gnav CSS from deal-maker.html, replaced global-nav in pricing-manager.html. Updated CSS selectors referencing .global-nav to .header. Deployed to production.",
+                                 "verified":  true,
+                                 "verified_at":  "2026-02-16T03:40:00-08:00",
+                                 "verification_notes":  "All 6 pages use canonical \u003cheader class=\u0027header\u0027\u003e with 5 nav links (Dashboard, Data Manager, Pricing, Deal Maker, Assistant). Active states correct per page. Removed dead .global-nav CSS from pricing-manager.html. assistant.html and settings.html are 404 (not deployed — only ai-chat.html exists)."
+                             },
+    "task3_sort_location":  {
+                                "planned":  true,
+                                "planned_at":  "2026-02-16T03:55:00-08:00",
+                                "plan_notes":  "2 locations found (Ready Room, Processing). pricing-manager.html needs: location tracking in groupInventory(), location filter chips, location column in table, location sort options. Additive changes only.",
+                                "executed":  true,
+                                "executed_at":  "2026-02-16T04:25:00-08:00",
+                                "execution_notes":  "Added location tracking in groupInventory() (per-group Ready Room/Processing counts). Added Location filter chips in filter popover. Added Location column with colored RR/P badges between Storage and Grades. Added \u0027Ready Room First\u0027 and \u0027Processing First\u0027 sort options. Wired up activeLocations set with filter, clear, preset, and active filter tag support. Committed 611446d, pushed, deployed to production.",
+                                "verified":  true,
+                                "verified_at":  "2026-02-16T04:45:00-08:00",
+                                "verification_notes":  "Live site confirmed: Location column shows RR/P badges for all 367 models. Sort dropdown has \u0027Ready Room First\u0027 and \u0027Processing First\u0027 options. Location filter chips show Ready Room (2935) and Processing (5922). All working."
+                            },
+    "task4_incremental_sync":  {
+                                   "planned":  true,
+                                   "planned_at":  "2026-02-16T05:00:00-08:00",
+                                   "plan_notes":  "WholeCell API has NO date filtering (updated_since/updated_at_min silently ignored). Proposed hash-based diff sync: fingerprint each item after sync, compare on next run, track adds/removes/changes, skip blob upload when unchanged.",
+                                   "executed":  true,
+                                   "executed_at":  "2026-02-16T05:25:00-08:00",
+                                   "execution_notes":  "Implemented hash-based diff in sync-wholecell.js: MD5 fingerprint per item (status|location|price|cost|grade|updated_at), diff detection (added/removed/changed), skip Blob upload when unchanged, --diff flag for dry-run mode, auto-cleanup keeps last 20 diffs. Committed 66e93c0, pushed, deployed to production.",
+                                   "verified":  true,
+                                   "verified_at":  "2026-02-16T05:50:00-08:00",
+                                   "verification_notes":  "Hash-based diff logic unit tested (add/remove/change/unchanged all correct). Baseline fingerprint generated from existing 9,692-item inventory. Script correctly: hashes key fields (status|location|price|cost|grade|updated_at), detects adds/removes/changes, skips Blob upload when unchanged, saves diffs to data/sync-diffs/, auto-cleans to 20 diffs. --diff flag works for dry-run mode."
+                               },
+    "task5_past_deals_save":  {
+                                  "planned":  true,
+                                  "executed":  false,
+                                  "verified":  false,
+                                  "planned_at":  "2026-02-16T06:05:00-08:00",
+                                  "plan_notes":  "DATABASE_URL not set in Vercel env. Code is correct. Need Neon connection string from Harb to fix."
+                              },
+    "task6_pricing_history":  {
+                                  "planned":  false,
+                                  "executed":  false,
+                                  "verified":  false
+                              }
 }
