@@ -32,8 +32,12 @@
         "planned": true,
         "planned_at": "2026-02-16T05:00:00-08:00",
         "plan_notes": "WholeCell API has NO date filtering (updated_since/updated_at_min silently ignored). Proposed hash-based diff sync: fingerprint each item after sync, compare on next run, track adds/removes/changes, skip blob upload when unchanged.",
-        "executed": false,
-        "verified": false
+        "executed": true,
+        "executed_at": "2026-02-16T05:25:00-08:00",
+        "execution_notes": "Implemented hash-based diff in sync-wholecell.js: MD5 fingerprint per item (status|location|price|cost|grade|updated_at), diff detection (added/removed/changed), skip Blob upload when unchanged, --diff flag for dry-run mode, auto-cleanup keeps last 20 diffs. Committed 66e93c0, pushed, deployed to production.",
+        "verified": true,
+        "verified_at": "2026-02-16T05:50:00-08:00",
+        "verification_notes": "Hash-based diff logic unit tested (add/remove/change/unchanged all correct). Baseline fingerprint generated from existing 9,692-item inventory. Script correctly: hashes key fields (status|location|price|cost|grade|updated_at), detects adds/removes/changes, skips Blob upload when unchanged, saves diffs to data/sync-diffs/, auto-cleans to 20 diffs. --diff flag works for dry-run mode."
     },
     "task5_past_deals_save": {
         "planned": false,
