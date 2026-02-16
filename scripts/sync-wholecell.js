@@ -18,6 +18,13 @@
  *   node scripts/sync-wholecell.js              # Full sync (fetch + blob upload)
  *   node scripts/sync-wholecell.js --local-only # Fetch + save JSON only (no blob)
  *   node scripts/sync-wholecell.js --resume     # Resume from checkpoint if exists
+ *   node scripts/sync-wholecell.js --diff       # Show diff against last sync (incremental)
+ *
+ * Incremental Sync (Hash-Based Diff):
+ *   After each sync, saves a fingerprint of every item (id → hash of key fields).
+ *   On next sync, compares against the fingerprint to detect added/removed/changed items.
+ *   If nothing changed, skips the Blob upload entirely to save bandwidth.
+ *   Diff results saved to data/sync-diffs/ for audit trail.
  */
 
 process.on('uncaughtException', (err) => {
@@ -33,6 +40,7 @@ process.on('unhandledRejection', (reason) => {
 
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 
 // Config
 const APP_ID = process.env.WHOLECELL_APP_ID;
@@ -43,8 +51,128 @@ const MAX_RETRIES = 5;
 const ALLOWED_LOCATIONS = ['Ready Room', 'Processing'];
 const LOCAL_OUTPUT = path.join(__dirname, '..', 'data', 'available-inventory.json');
 const CHECKPOINT_FILE = path.join(__dirname, '..', 'data', '.sync-checkpoint.json');
+const FINGERPRINT_FILE = path.join(__dirname, '..', 'data', '.inventory-fingerprint.json');
+const DIFF_DIR = path.join(__dirname, '..', 'data', 'sync-diffs');
 const LOCAL_ONLY = process.argv.includes('--local-only');
 const RESUME = process.argv.includes('--resume');
+const DIFF_ONLY = process.argv.includes('--diff');
+
+// --- Incremental Sync: Fingerprinting & Diffing ---
+
+function hashItem(item) {
+  // Hash the fields that matter for detecting meaningful changes
+  const key = [
+    item.id,
+    item.status,
+    item.location?.name || item.location || '',
+    item.sale_price || '',
+    item.cost || '',
+    item.grade || '',
+    item.updated_at || '',
+  ].join('|');
+  return crypto.createHash('md5').update(key).digest('hex').substring(0, 12);
+}
+
+function buildFingerprint(items) {
+  const fp = {};
+  for (const item of items) {
+    fp[item.id] = {
+      hash: hashItem(item),
+      model: item.item_type?.name || item.model || 'Unknown',
+      location: item.location?.name || item.location || '',
+      status: item.status || '',
+    };
+  }
+  return fp;
+}
+
+function loadFingerprint() {
+  try {
+    if (fs.existsSync(FINGERPRINT_FILE)) {
+      return JSON.parse(fs.readFileSync(FINGERPRINT_FILE, 'utf8'));
+    }
+  } catch (e) {
+    console.warn('[WARN] Could not load fingerprint:', e.message);
+  }
+  return null;
+}
+
+function saveFingerprint(items) {
+  const fp = buildFingerprint(items);
+  const payload = {
+    savedAt: new Date().toISOString(),
+    totalItems: items.length,
+    fingerprints: fp,
+  };
+  const dir = path.dirname(FINGERPRINT_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(FINGERPRINT_FILE, JSON.stringify(payload));
+  console.log(`Fingerprint saved: ${Object.keys(fp).length} items`);
+  return payload;
+}
+
+function computeDiff(currentItems, previousFp) {
+  const current = buildFingerprint(currentItems);
+  const prev = previousFp.fingerprints || {};
+
+  const added = [];
+  const removed = [];
+  const changed = [];
+
+  // Find added & changed
+  for (const [id, cur] of Object.entries(current)) {
+    if (!prev[id]) {
+      added.push({ id, model: cur.model, location: cur.location, status: cur.status });
+    } else if (prev[id].hash !== cur.hash) {
+      changed.push({
+        id,
+        model: cur.model,
+        before: { location: prev[id].location, status: prev[id].status },
+        after: { location: cur.location, status: cur.status },
+      });
+    }
+  }
+
+  // Find removed
+  for (const [id, old] of Object.entries(prev)) {
+    if (!current[id]) {
+      removed.push({ id, model: old.model, location: old.location, status: old.status });
+    }
+  }
+
+  return {
+    timestamp: new Date().toISOString(),
+    previousSync: previousFp.savedAt,
+    summary: {
+      added: added.length,
+      removed: removed.length,
+      changed: changed.length,
+      unchanged: Object.keys(current).length - added.length - changed.length,
+      totalBefore: Object.keys(prev).length,
+      totalAfter: Object.keys(current).length,
+    },
+    added,
+    removed,
+    changed,
+  };
+}
+
+function saveDiff(diff) {
+  if (!fs.existsSync(DIFF_DIR)) fs.mkdirSync(DIFF_DIR, { recursive: true });
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+  const diffFile = path.join(DIFF_DIR, `sync-diff-${ts}.json`);
+  fs.writeFileSync(diffFile, JSON.stringify(diff, null, 2));
+  console.log(`Diff saved: ${diffFile}`);
+
+  // Keep only last 20 diff files
+  const files = fs.readdirSync(DIFF_DIR).filter(f => f.startsWith('sync-diff-')).sort();
+  if (files.length > 20) {
+    for (const old of files.slice(0, files.length - 20)) {
+      fs.unlinkSync(path.join(DIFF_DIR, old));
+    }
+  }
+  return diffFile;
+}
 
 function getAuthHeader() {
   return `Basic ${Buffer.from(`${APP_ID}:${APP_SECRET}`).toString('base64')}`;
@@ -204,6 +332,38 @@ async function syncInventory() {
     data: filtered,
   };
 
+  // --- Incremental Diff ---
+  const previousFp = loadFingerprint();
+  let diff = null;
+  let hasChanges = true;
+
+  if (previousFp) {
+    diff = computeDiff(filtered, previousFp);
+    const s = diff.summary;
+    console.log(`\n=== Incremental Diff ===`);
+    console.log(`  Previous sync: ${previousFp.savedAt}`);
+    console.log(`  Added:     ${s.added}`);
+    console.log(`  Removed:   ${s.removed}`);
+    console.log(`  Changed:   ${s.changed}`);
+    console.log(`  Unchanged: ${s.unchanged}`);
+    console.log(`  Total:     ${s.totalBefore} → ${s.totalAfter}`);
+
+    saveDiff(diff);
+    hasChanges = s.added > 0 || s.removed > 0 || s.changed > 0;
+
+    if (!hasChanges) {
+      console.log('\n✓ No changes detected since last sync.');
+    }
+
+    // If --diff flag, just show the diff and exit (don't save/upload)
+    if (DIFF_ONLY) {
+      console.log('\n[--diff mode] Exiting after diff. No files written.');
+      return { success: true, items: filtered.length, diff: diff.summary, hasChanges };
+    }
+  } else {
+    console.log('\nNo previous fingerprint found — this is the first tracked sync.');
+  }
+
   // Save local JSON
   const dataDir = path.dirname(LOCAL_OUTPUT);
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -211,35 +371,43 @@ async function syncInventory() {
   const sizeMB = (fs.statSync(LOCAL_OUTPUT).size / (1024 * 1024)).toFixed(1);
   console.log(`\nSaved: ${LOCAL_OUTPUT} (${sizeMB} MB)`);
 
+  // Save new fingerprint
+  saveFingerprint(filtered);
+
   // Clean checkpoint
   try { fs.unlinkSync(CHECKPOINT_FILE); } catch {}
 
-  // Upload to Vercel Blob
+  // Upload to Vercel Blob (skip if no changes detected)
   if (!LOCAL_ONLY && process.env.BLOB_READ_WRITE_TOKEN) {
-    try {
-      const { put, list, del } = require('@vercel/blob');
-      console.log('Uploading to Vercel Blob Storage...');
-      const jsonStr = JSON.stringify(payload);
-      const blob = await put('inventory/latest.json', jsonStr, {
-        access: 'public',
-        contentType: 'application/json',
-        addRandomSuffix: false,
-      });
-      console.log(`Uploaded: ${blob.url}`);
-      const { blobs } = await list({ prefix: 'inventory/' });
-      for (const old of blobs.filter(b => b.pathname !== 'inventory/latest.json')) {
-        await del(old.url);
+    if (!hasChanges) {
+      console.log('\nSkipping Blob upload — inventory unchanged since last sync.');
+    } else {
+      try {
+        const { put, list, del } = require('@vercel/blob');
+        console.log('Uploading to Vercel Blob Storage...');
+        const jsonStr = JSON.stringify(payload);
+        const blob = await put('inventory/latest.json', jsonStr, {
+          access: 'public',
+          contentType: 'application/json',
+          addRandomSuffix: false,
+        });
+        console.log(`Uploaded: ${blob.url}`);
+        const { blobs } = await list({ prefix: 'inventory/' });
+        for (const old of blobs.filter(b => b.pathname !== 'inventory/latest.json')) {
+          await del(old.url);
+        }
+      } catch (err) {
+        console.error('Blob upload failed:', err.message);
       }
-    } catch (err) {
-      console.error('Blob upload failed:', err.message);
     }
   }
 
   console.log('\n=== Sync Complete ===');
   console.log(`Items: ${filtered.length} (${Object.entries(locationBreakdown).map(([k,v])=>`${k}: ${v}`).join(', ')})`);
   console.log(`Duration: ${fetchDuration}s | Failed pages: ${failedPages}`);
+  if (diff) console.log(`Changes: +${diff.summary.added} / -${diff.summary.removed} / ~${diff.summary.changed}`);
 
-  return { success: true, items: filtered.length, duration: parseInt(fetchDuration), failedPages };
+  return { success: true, items: filtered.length, duration: parseInt(fetchDuration), failedPages, diff: diff?.summary, hasChanges };
 }
 
 syncInventory()
