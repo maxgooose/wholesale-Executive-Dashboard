@@ -236,7 +236,7 @@ Since the API doesn't support incremental queries, we diff client-side:
 - Repo: maxgooose/wholesale-Executive-Dashboard
 - Local: C:\Users\hhgoo\.openclaw\workspace\wholesale-executive-dashboard\
 
-## Task 5: Past Deals Save/Export Fix � PLANNED
+## Task 5: Past Deals Save/Export Fix � PLANNED
 
 ### Root Cause
 **DATABASE_URL environment variable is NOT set in Vercel.** The Neon Postgres connection string was never added to the project's Vercel env vars. Every call to /api/deals (GET, POST, DELETE) returns 500 with: `No database connection string was provided to neon()`.
@@ -244,14 +244,14 @@ Since the API doesn't support incremental queries, we diff client-side:
 ### Evidence
 - `npx vercel env ls` returns: "No Environment Variables found"
 - `GET /api/deals` returns 500 with the neon() error
-- The code in `api/deals.js` and `pricing-manager.html` is actually correct � POST body matches schema, table auto-creates, items serialize properly
+- The code in `api/deals.js` and `pricing-manager.html` is actually correct � POST body matches schema, table auto-creates, items serialize properly
 
 ### Code Review (No Bugs Found)
 - **api/deals.js**: Auto-creates `deals` table on first call. POST validates deal_name + items[]. INSERT uses parameterized query. GET lists/fetches. DELETE by id. All correct.
 - **pricing-manager.html**: `exportDeal()` (line 2608) builds CSV, triggers download, then calls `saveDealToServer()`. `saveDealToServer()` (line 2654) sends correct POST body: `{deal_name, buyer, items[], total_units, total_value}`. `loadPastDeals()` / `loadPastDealsModal()` fetch GET /api/deals. `loadDeal()` restores deal from server. All correct.
 
 ### Fix (1 Step)
-1. **Set DATABASE_URL in Vercel env** � need the Neon connection string from Harb
+1. **Set DATABASE_URL in Vercel env** � need the Neon connection string from Harb
    `npx vercel env add DATABASE_URL production --token <token>`
    Then redeploy: `npx vercel --prod --yes --token <token>`
 
@@ -260,3 +260,37 @@ Since the API doesn't support incremental queries, we diff client-side:
 
 ### Alternative (if no Neon URL available)
 Create a new free Neon project at neon.tech, get connection string, set it. But this should be Harb's call.
+
+## Task 6: Pricing History Verification ✅ PLANNED
+
+### Finding
+**The entire price history chain is WORKING correctly.** No broken links.
+
+### Full Flow (Verified)
+1. **User edits price** → `savePrice()` (line ~2260) fires
+2. **Local save** → `pricingDB.saveModelPrice()` writes to IndexedDB (client-side)
+3. **Server save** → `fetch('/api/prices', { method: 'POST', body: { model, storage, price } })` inserts row into `price_history` table in Neon Postgres
+4. **User clicks 📊 button** → `showPriceHistory(model, storage)` (line ~2996) fires
+5. **Fetch history** → `GET /api/price-history?model=X&storage=Y` returns up to 50 rows, newest first
+6. **Display** → Modal renders table with Price, Date, and Change (delta from previous entry)
+
+### API Testing (Live Production)
+| Endpoint | Status | Notes |
+|----------|--------|-------|
+| `GET /api/prices` | ✅ 200 | Returns 4 distinct model/storage combos with latest price |
+| `GET /api/price-history` | ✅ 200 | Returns all 4 entries (newest first) |
+| `GET /api/price-history?model=IPAD%205%20CELLULAR&storage=32GB` | ✅ 200 | Returns 1 entry ($666) |
+
+### Data in DB
+- IPAD 5 CELLULAR 32GB → $666 (Feb 16 04:37)
+- G STYLUS (XT2211-2) 128GB → $67 (Feb 16 04:43)
+- GALAXY A13 5G (A136U) 64GB → $67 (Feb 16 04:43)
+- GALAXY A14 5G (A146U) 64GB → $78 (Feb 16 04:43)
+
+### Minor Improvements (Optional, Low Priority)
+1. **Single-price model** — `savePrice()` sets all grades (A/B/C/CAMZ) to the same value. If Harb wants per-grade pricing in history, the API and UI need expansion. Current design treats each model/storage as having one price.
+2. **No delete/edit for history entries** — history is append-only (which is correct for audit trail).
+3. **IndexedDB vs Postgres dual-write** — prices live in both IndexedDB (for offline/fast access) and Postgres (for history). IndexedDB is the "current price" source; Postgres is the history log. This is fine architecturally.
+
+### Execution Plan
+**Nothing to fix.** The chain works end-to-end. Mark as verified.
