@@ -736,6 +736,9 @@
             color: var(--accent);
             border-color: var(--accent);
         }
+        .hist-btn { background:none; border:none; cursor:pointer; font-size:14px; opacity:0.4; padding:2px 4px; transition:opacity 0.15s; }
+        tbody tr:hover .hist-btn { opacity:0.8; }
+        .hist-btn:hover { opacity:1; }
         .add-deal-btn.in-deal {
             opacity: 1;
             background: #6366f1;
@@ -1442,6 +1445,7 @@
                     <th style="text-align:right;">Value</th>
                     <th style="text-align:center;width:36px;" title="Status"></th>
                     <th style="text-align:center;width:36px;" title="Deal"></th>
+                    <th style="text-align:center;width:36px;" title="History"></th>
                 </tr>
             </thead>
             <tbody id="tableBody">
@@ -2139,6 +2143,7 @@
                 <td class="cell-value ${value === 0 ? 'no-value' : ''}">${value > 0 ? '$' + value.toLocaleString() : '—'}</td>
                 <td style="text-align:center"><span class="status-dot ${status}" title="${status}"></span></td>
                 <td style="text-align:center"><button class="add-deal-btn ${inDeal ? 'in-deal' : ''}" onclick="toggleDealItem('${escJs(key)}')" title="${inDeal ? 'Remove from deal' : 'Add to deal'}">${inDeal ? '✓' : '+'}</button></td>
+                <td style="text-align:center"><button class="hist-btn" onclick="showPriceHistory('${escJs(g.model)}','${escJs(g.storage)}')" title="Price history">📊</button></td>
             </tr>`;
         }).join('');
     }
@@ -2181,6 +2186,12 @@
                 model: group.model, storage: group.storage,
                 gradeA: p, gradeB: p, gradeC: p, gradeCAMZ: p, gradeD: 0, defective: 0
             });
+            // Persist to server DB for history
+            fetch('/api/prices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: group.model, storage: group.storage, price: p })
+            }).catch(e => console.warn('Server price sync failed:', e));
             group.lastPriceUpdate = new Date().toISOString();
             input.classList.add('just-saved');
             setTimeout(() => input.classList.remove('just-saved'), 600);
@@ -2728,6 +2739,50 @@
     (function() { const s = localStorage.getItem('theme'); if (s) document.documentElement.setAttribute('data-theme', s); })();
     function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function escJs(s) { return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+
+    /* ══════════════════════════════════════════════════════════
+       PRICE HISTORY MODAL
+       ══════════════════════════════════════════════════════════ */
+    async function showPriceHistory(model, storage) {
+        let modal = document.getElementById('priceHistoryModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'priceHistoryModal';
+            modal.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);';
+            modal.innerHTML = `<div style="background:var(--bg-primary,#fff);border-radius:12px;padding:24px;max-width:480px;width:90%;max-height:70vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <h3 id="histTitle" style="margin:0;font-size:16px;color:var(--text-primary,#111);">Price History</h3>
+                    <button onclick="document.getElementById('priceHistoryModal').style.display='none'" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text-secondary,#666);">✕</button>
+                </div>
+                <div id="histBody" style="font-size:14px;color:var(--text-primary,#111);"></div>
+            </div>`;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+        }
+        modal.style.display = 'flex';
+        document.getElementById('histTitle').textContent = `${model} ${storage} — Price History`;
+        const body = document.getElementById('histBody');
+        body.innerHTML = '<p style="color:var(--text-secondary,#888);">Loading...</p>';
+        try {
+            const res = await fetch(`/api/price-history?model=${encodeURIComponent(model)}&storage=${encodeURIComponent(storage)}`);
+            const data = await res.json();
+            if (!data.history || data.history.length === 0) {
+                body.innerHTML = '<p style="color:var(--text-secondary,#888);">No price history yet. Save a price to start tracking.</p>';
+                return;
+            }
+            body.innerHTML = `<table style="width:100%;border-collapse:collapse;">
+                <thead><tr><th style="text-align:left;padding:8px 4px;border-bottom:2px solid var(--border-default,#ddd);font-size:12px;text-transform:uppercase;color:var(--text-secondary,#888);">Price</th><th style="text-align:left;padding:8px 4px;border-bottom:2px solid var(--border-default,#ddd);font-size:12px;text-transform:uppercase;color:var(--text-secondary,#888);">Date</th><th style="text-align:right;padding:8px 4px;border-bottom:2px solid var(--border-default,#ddd);font-size:12px;text-transform:uppercase;color:var(--text-secondary,#888);">Change</th></tr></thead>
+                <tbody>${data.history.map((h, i) => {
+                    const prev = data.history[i + 1];
+                    const diff = prev ? h.price - prev.price : 0;
+                    const diffStr = diff === 0 ? '—' : (diff > 0 ? `<span style="color:#22c55e;">+$${diff.toFixed(0)}</span>` : `<span style="color:#ef4444;">-$${Math.abs(diff).toFixed(0)}</span>`);
+                    const d = new Date(h.created_at);
+                    return `<tr><td style="padding:6px 4px;border-bottom:1px solid var(--border-default,#eee);font-weight:600;">$${parseFloat(h.price).toFixed(0)}</td><td style="padding:6px 4px;border-bottom:1px solid var(--border-default,#eee);color:var(--text-secondary,#888);">${d.toLocaleDateString()} ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</td><td style="padding:6px 4px;border-bottom:1px solid var(--border-default,#eee);text-align:right;">${diffStr}</td></tr>`;
+                }).join('')}</tbody></table>`;
+        } catch (e) {
+            body.innerHTML = `<p style="color:#ef4444;">Failed to load history: ${e.message}</p>`;
+        }
+    }
     </script>
 </body>
 </html>
