@@ -1053,6 +1053,99 @@
         }
         .deal-empty p { font-size: var(--text-sm); }
 
+        /* ── Past Deals ────────────────────────── */
+        .deal-history-divider {
+            height: 1px;
+            background: var(--border-subtle);
+            margin: var(--space-3) var(--space-4);
+        }
+        .past-deals-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            width: calc(100% - 32px);
+            margin: 0 var(--space-4);
+            padding: 8px 12px;
+            font-size: var(--text-sm);
+            color: var(--text-secondary);
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .past-deals-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+        .past-deals-count {
+            font-size: 11px;
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
+            padding: 1px 6px;
+            border-radius: 10px;
+            margin-left: auto;
+        }
+        .past-deals-count:empty { display: none; }
+        .past-deals-list {
+            margin: var(--space-2) var(--space-4) var(--space-4);
+            max-height: 300px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .past-deal-card {
+            padding: 10px 12px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-subtle);
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .past-deal-card:hover { border-color: var(--accent); background: var(--bg-hover); }
+        .past-deal-card .pd-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4px;
+        }
+        .past-deal-card .pd-name {
+            font-weight: 600;
+            font-size: var(--text-sm);
+            color: var(--text-primary);
+        }
+        .past-deal-card .pd-date {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+        .past-deal-card .pd-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            display: flex;
+            gap: 12px;
+        }
+        .past-deal-card .pd-actions {
+            display: flex;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .past-deal-card .pd-btn {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            cursor: pointer;
+        }
+        .past-deal-card .pd-btn:hover { background: var(--bg-hover); }
+        .past-deal-card .pd-btn.danger { color: var(--danger); }
+        .past-deal-card .pd-btn.danger:hover { background: rgba(239,68,68,0.08); }
+        .past-deals-empty {
+            text-align: center;
+            padding: 16px;
+            font-size: var(--text-sm);
+            color: var(--text-muted);
+        }
+
         /* ── Modals ─────────────────────────────── */
         .modal-overlay {
             position: fixed; inset: 0;
@@ -1551,6 +1644,12 @@
                 Export Offer
             </button>
         </div>
+        <div class="deal-history-divider"></div>
+        <button class="btn btn-ghost past-deals-btn" onclick="togglePastDeals()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Past Deals <span class="past-deals-count" id="pastDealsCount"></span>
+        </button>
+        <div class="past-deals-list" id="pastDealsList" style="display:none;"></div>
     </div>
 
     <!-- ═══ Upload Modal ═══ -->
@@ -1694,6 +1793,10 @@
     async function initApp() {
         showLoading(true, 'Initializing...');
         loadDealState();
+        // Fetch past deals count in background
+        fetch('/api/deals').then(r=>r.json()).then(d=>{
+            if(d.deals&&d.deals.length>0) document.getElementById('pastDealsCount').textContent=d.deals.length;
+        }).catch(()=>{});
         try {
             await pricingDB.ensureReady();
             await loadInventory();
@@ -2565,6 +2668,114 @@
         a.click();
         URL.revokeObjectURL(url);
         showToast(`Exported deal with ${dealItems.size} models`, 'success');
+
+        // Save to server
+        saveDealToServer(dealName, buyer, totalUnits, totalValue);
+    }
+
+    function saveDealToServer(dealName, buyer, totalUnits, totalValue) {
+        const items = Array.from(dealItems.values()).map(item => ({
+            model: item.model,
+            storage: item.storage,
+            grade: item.grade || 'All',
+            qty: item.offerQty,
+            price: item.offerPrice,
+            subtotal: item.offerQty * item.offerPrice
+        }));
+        fetch('/api/deals', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ deal_name: dealName, buyer, items, total_units: totalUnits, total_value: totalValue })
+        }).then(r => r.json()).then(data => {
+            if (data.ok) {
+                showToast('Deal saved to history', 'success');
+                loadPastDeals();
+            }
+        }).catch(err => console.warn('Deal save failed:', err));
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       PAST DEALS
+       ══════════════════════════════════════════════════════════ */
+    let pastDealsOpen = false;
+
+    function togglePastDeals() {
+        pastDealsOpen = !pastDealsOpen;
+        const list = document.getElementById('pastDealsList');
+        list.style.display = pastDealsOpen ? 'flex' : 'none';
+        if (pastDealsOpen) loadPastDeals();
+    }
+
+    function loadPastDeals() {
+        const list = document.getElementById('pastDealsList');
+        list.innerHTML = '<div class="past-deals-empty">Loading...</div>';
+        fetch('/api/deals').then(r => r.json()).then(data => {
+            const deals = data.deals || [];
+            document.getElementById('pastDealsCount').textContent = deals.length > 0 ? deals.length : '';
+            if (deals.length === 0) {
+                list.innerHTML = '<div class="past-deals-empty">No past deals yet</div>';
+                return;
+            }
+            list.innerHTML = deals.map(d => {
+                const date = new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const value = d.total_value > 0 ? `$${Number(d.total_value).toLocaleString()}` : '$0';
+                return `<div class="past-deal-card" onclick="loadDeal(${d.id})">
+                    <div class="pd-top"><span class="pd-name">${escHtml(d.deal_name)}</span><span class="pd-date">${date}</span></div>
+                    <div class="pd-meta"><span>${d.total_units} units</span><span>${value}</span>${d.buyer ? `<span>${escHtml(d.buyer)}</span>` : ''}</div>
+                    <div class="pd-actions" onclick="event.stopPropagation()">
+                        <button class="pd-btn" onclick="loadDeal(${d.id})">Load</button>
+                        <button class="pd-btn danger" onclick="deleteDeal(${d.id})">Delete</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }).catch(err => {
+            list.innerHTML = '<div class="past-deals-empty">Failed to load deals</div>';
+            console.warn('Load deals failed:', err);
+        });
+    }
+
+    function loadDeal(id) {
+        fetch(`/api/deals?id=${id}`).then(r => r.json()).then(data => {
+            if (!data.deal) return showToast('Deal not found', 'error');
+            const deal = data.deal;
+            // Clear current deal
+            dealItems.clear();
+            // Load items
+            const items = typeof deal.items === 'string' ? JSON.parse(deal.items) : deal.items;
+            items.forEach(item => {
+                const key = `${item.model}|${item.storage}|${item.grade || 'All'}`;
+                dealItems.set(key, {
+                    key,
+                    model: item.model,
+                    storage: item.storage,
+                    grade: item.grade || 'All',
+                    maxQty: item.qty,
+                    offerQty: item.qty,
+                    offerPrice: item.price || 0,
+                    grades: {}
+                });
+            });
+            document.getElementById('dealName').value = deal.deal_name || '';
+            document.getElementById('dealBuyer').value = deal.buyer || '';
+            renderDealItems();
+            updateDealBadge();
+            saveDealState();
+            if (!dealPanelOpen) openDealPanel();
+            showToast(`Loaded "${deal.deal_name}"`, 'success');
+        }).catch(err => {
+            showToast('Failed to load deal', 'error');
+            console.warn(err);
+        });
+    }
+
+    function deleteDeal(id) {
+        if (!confirm('Delete this deal from history?')) return;
+        fetch(`/api/deals?id=${id}`, { method: 'DELETE' }).then(r => r.json()).then(data => {
+            if (data.ok) {
+                showToast('Deal deleted', 'success');
+                loadPastDeals();
+            }
+        }).catch(err => console.warn('Delete deal failed:', err));
     }
 
     /* ══════════════════════════════════════════════════════════
