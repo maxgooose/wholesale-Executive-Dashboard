@@ -59,67 +59,6 @@
             color: var(--text-muted);
         }
 
-        /* ── Global Nav Bar ─────────────────────── */
-        .global-nav {
-            background: var(--header-bg);
-            color: var(--header-text);
-            padding: 0 var(--space-6);
-            position: sticky;
-            top: 0;
-            z-index: calc(var(--z-sticky) + 1);
-            backdrop-filter: blur(12px);
-        }
-        .global-nav-inner {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            max-width: 1400px;
-            margin: 0 auto;
-            height: 52px;
-        }
-        .global-nav-brand {
-            display: flex;
-            align-items: center;
-            gap: var(--space-3);
-        }
-        .global-nav-logo {
-            width: 32px; height: 32px;
-            background: rgba(255,255,255,0.15);
-            border-radius: var(--radius-md);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .global-nav-logo svg {
-            width: 20px; height: 20px;
-            color: white;
-        }
-        .global-nav-title { font-size: var(--text-sm); font-weight: 700; color: #fff; }
-        .global-nav-subtitle { font-size: 11px; color: rgba(255,255,255,0.6); font-weight: 500; }
-        .global-nav-links {
-            display: flex;
-            align-items: center;
-            gap: var(--space-2);
-        }
-        .gnav-link {
-            display: inline-flex;
-            align-items: center;
-            gap: var(--space-2);
-            padding: var(--space-2) var(--space-4);
-            font-size: var(--text-sm);
-            font-weight: 500;
-            color: rgba(255,255,255,0.7);
-            text-decoration: none;
-            border-radius: var(--radius-md);
-            transition: all var(--transition-fast);
-        }
-        .gnav-link:hover { color: #fff; background: rgba(255,255,255,0.1); }
-        .gnav-link.active { color: #fff; background: rgba(255,255,255,0.15); }
-        .gnav-link svg { width: 18px; height: 18px; }
-        @media (max-width: 700px) {
-            .global-nav-links { display: none; }
-        }
-
         /* ── Compact Top Bar ────────────────────── */
         .top-bar {
             height: 56px;
