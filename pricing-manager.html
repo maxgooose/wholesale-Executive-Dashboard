@@ -1693,7 +1693,7 @@
     </div>
 
     <!-- ═══ Proceed / Finalize Deal Modal ═══ -->
-    <div class="modal-overlay" id="proceedModal" onclick="if(event.target===this)closeProceedModal()">
+    <div class="modal-overlay" id="proceedModal" style="display:none;" onclick="if(event.target===this)closeProceedModal()">
         <div class="modal" style="max-width:480px;">
             <div class="modal-header">
                 <h2>Finalize Deal</h2>
@@ -2835,15 +2835,15 @@
         document.getElementById('proceedUnits').textContent = totalUnits.toLocaleString();
         document.getElementById('proceedValue').textContent = '$' + totalValue.toLocaleString();
         const modal = document.getElementById('proceedModal');
-        modal.classList.add('visible');
         modal.style.display = 'flex';
-        // Focus deal name input
+        modal.classList.add('visible');
+        modal.style.zIndex = '9999';
         setTimeout(() => document.getElementById('dealName').focus(), 100);
     }
     function closeProceedModal() {
         const modal = document.getElementById('proceedModal');
-        modal.classList.remove('visible');
         modal.style.display = 'none';
+        modal.classList.remove('visible');
     }
     function saveDealFromModal() {
         saveDealOnly();
