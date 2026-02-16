@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deal Maker — Universal Cellular</title>
+    <link rel="stylesheet" href="styles/theme.css">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: var(--font-display); background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
+
+        /* ── Nav ─────────────────── */
+        .gnav { background: var(--bg-header); border-bottom: 1px solid var(--border-subtle); padding: 0 24px; display: flex; align-items: center; height: 52px; gap: 8px; position: sticky; top: 0; z-index: 100; }
+        .gnav-brand { display: flex; align-items: center; gap: 10px; margin-right: 24px; }
+        .gnav-brand svg { width: 28px; height: 28px; color: var(--accent); }
+        .gnav-brand span { font-weight: 700; font-size: 15px; color: var(--text-primary); }
+        .gnav-links { display: flex; gap: 4px; flex: 1; }
+        .gnav-link { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--text-secondary); text-decoration: none; transition: all 0.15s; }
+        .gnav-link:hover { color: var(--text-primary); background: var(--bg-secondary); }
+        .gnav-link.active { color: var(--accent); background: rgba(59,130,246,0.08); }
+        .gnav-link svg { width: 18px; height: 18px; }
+        .icon-btn { width: 36px; height: 36px; border-radius: 8px; border: none; background: none; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+        .icon-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
+        .icon-btn svg { width: 18px; height: 18px; }
+
+        /* ── Main ─────────────────── */
+        .container { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+        h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+        .subtitle { color: var(--text-secondary); font-size: 14px; margin-bottom: 24px; }
+
+        /* ── Deal Info ─────────────────── */
+        .deal-info { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+        .deal-info input { padding: 10px 14px; border: 1px solid var(--border-default); border-radius: 8px; font-size: 14px; background: var(--bg-card); color: var(--text-primary); font-family: inherit; }
+        .deal-info input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+
+        /* ── Add Item Form ─────────────────── */
+        .add-form { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+        .add-form h2 { font-size: 15px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .form-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; }
+        .form-group input, .form-group select { padding: 10px 12px; border: 1px solid var(--border-default); border-radius: 8px; font-size: 14px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+
+        /* ── Search Dropdown ─────────────────── */
+        .search-wrap { position: relative; }
+        .search-dropdown { position: absolute; top: 100%; left: 0; right: 0; max-height: 280px; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border-default); border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.12); z-index: 50; display: none; margin-top: 4px; }
+        .search-dropdown.visible { display: block; }
+        .search-option { padding: 10px 14px; cursor: pointer; font-size: 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-subtle); }
+        .search-option:last-child { border-bottom: none; }
+        .search-option:hover { background: var(--bg-secondary); }
+        .search-option .model-name { font-weight: 500; }
+        .search-option .model-meta { font-size: 12px; color: var(--text-secondary); }
+        .search-option .model-stock { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+
+        /* ── Add Button ─────────────────── */
+        .btn-add { padding: 10px 20px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+        .btn-add:hover { filter: brightness(1.1); }
+        .btn-add:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* ── Deal Items Table ─────────────────── */
+        .deal-table-wrap { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+        .deal-table-header { padding: 16px 20px; border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; align-items: center; }
+        .deal-table-header h2 { font-size: 15px; font-weight: 600; }
+        .deal-table { width: 100%; border-collapse: collapse; }
+        .deal-table thead th { padding: 10px 14px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px; background: var(--bg-secondary); border-bottom: 1px solid var(--border-subtle); }
+        .deal-table tbody td { padding: 12px 14px; font-size: 14px; border-bottom: 1px solid var(--border-subtle); }
+        .deal-table tbody tr:last-child td { border-bottom: none; }
+        .deal-table tbody tr:hover { background: var(--bg-secondary); }
+        .deal-table .col-actions { text-align: center; width: 48px; }
+        .deal-table .col-qty, .deal-table .col-price, .deal-table .col-subtotal { text-align: right; }
+        .deal-table input[type="number"] { width: 80px; padding: 6px 8px; border: 1px solid var(--border-default); border-radius: 6px; font-size: 14px; text-align: right; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; }
+        .deal-table input[type="number"]:focus { outline: none; border-color: var(--accent); }
+        .btn-remove { width: 28px; height: 28px; border-radius: 6px; border: none; background: none; color: var(--text-secondary); cursor: pointer; font-size: 18px; display: inline-flex; align-items: center; justify-content: center; }
+        .btn-remove:hover { background: rgba(239,68,68,0.1); color: #ef4444; }
+        .grade-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; background: var(--bg-secondary); }
+
+        /* ── Empty State ─────────────────── */
+        .empty-state { padding: 48px 20px; text-align: center; color: var(--text-secondary); }
+        .empty-state svg { width: 48px; height: 48px; margin-bottom: 12px; opacity: 0.3; }
+        .empty-state p { font-size: 14px; }
+
+        /* ── Summary + Export ─────────────────── */
+        .deal-summary { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+        .summary-stats { display: flex; gap: 32px; }
+        .summary-stat { display: flex; flex-direction: column; }
+        .summary-stat .label { font-size: 12px; color: var(--text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+        .summary-stat .value { font-size: 20px; font-weight: 700; }
+        .summary-actions { display: flex; gap: 8px; }
+        .btn-export { padding: 12px 24px; background: #16a34a; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: all 0.15s; }
+        .btn-export:hover { filter: brightness(1.1); }
+        .btn-export:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-export svg { width: 18px; height: 18px; }
+        .btn-clear { padding: 12px 16px; background: none; border: 1px solid var(--border-default); border-radius: 8px; font-size: 14px; font-weight: 500; color: var(--text-secondary); cursor: pointer; transition: all 0.15s; }
+        .btn-clear:hover { border-color: #ef4444; color: #ef4444; }
+
+        /* ── Toast ─────────────────── */
+        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--bg-header); color: var(--text-primary); padding: 12px 20px; border-radius: 10px; font-size: 14px; font-weight: 500; box-shadow: 0 8px 32px rgba(0,0,0,0.2); z-index: 999; transition: transform 0.3s ease; pointer-events: none; }
+        .toast.visible { transform: translateX(-50%) translateY(0); }
+
+        /* ── Loading ─────────────────── */
+        .loading-overlay { position: fixed; inset: 0; background: var(--bg-primary); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; transition: opacity 0.3s; }
+        .loading-overlay.hidden { opacity: 0; pointer-events: none; }
+        .loading-spinner { width: 36px; height: 36px; border: 3px solid var(--border-subtle); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text { margin-top: 12px; font-size: 14px; color: var(--text-secondary); }
+
+        /* ── Responsive ─────────────────── */
+        @media (max-width: 700px) {
+            .form-row { grid-template-columns: 1fr 1fr; }
+            .form-row .search-wrap { grid-column: 1 / -1; }
+            .deal-info { grid-template-columns: 1fr; }
+            .summary-stats { gap: 20px; }
+            .deal-summary { flex-direction: column; align-items: stretch; }
+            .summary-actions { justify-content: stretch; }
+            .summary-actions button { flex: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading inventory...</div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="gnav">
+        <div class="gnav-brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            <span>Universal</span>
+        </div>
+        <div class="gnav-links">
+            <a href="index.html" class="gnav-link">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                Dashboard
+            </a>
+            <a href="data-manager.html" class="gnav-link">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/></svg>
+                Data Manager
+            </a>
+            <a href="pricing-manager.html" class="gnav-link">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Pricing
+            </a>
+            <a href="deal-maker.html" class="gnav-link active">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
+                Deal Maker
+            </a>
+        </div>
+        <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+        </button>
+    </nav>
+
+    <div class="container">
+        <h1>Deal Maker</h1>
+        <p class="subtitle">Build a deal — pick models, grades, and quantities, then export to Excel.</p>
+
+        <!-- Deal Info -->
+        <div class="deal-info">
+            <input type="text" id="dealName" placeholder="Deal name (e.g. Q1 Bulk Order)">
+            <input type="text" id="dealBuyer" placeholder="Buyer name">
+        </div>
+
+        <!-- Add Item -->
+        <div class="add-form">
+            <h2>
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="18" height="18"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add Item
+            </h2>
+            <div class="form-row">
+                <div class="form-group search-wrap">
+                    <label>Model</label>
+                    <input type="text" id="modelSearch" placeholder="Search model..." autocomplete="off" onfocus="onSearchFocus()" oninput="onSearchInput()">
+                    <div class="search-dropdown" id="searchDropdown"></div>
+                </div>
+                <div class="form-group">
+                    <label>Grade</label>
+                    <select id="gradeSelect">
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="C (AMZ)">C (AMZ)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input type="number" id="qtyInput" min="1" value="1" placeholder="Qty">
+                </div>
+                <div class="form-group">
+                    <label>Price ($)</label>
+                    <input type="number" id="priceInput" min="0" step="1" placeholder="Per unit">
+                </div>
+                <button class="btn-add" id="addBtn" onclick="addItem()" disabled>Add</button>
+            </div>
+            <div id="stockHint" style="font-size:12px; color:var(--text-secondary); margin-top:8px;"></div>
+        </div>
+
+        <!-- Deal Items -->
+        <div class="deal-table-wrap">
+            <div class="deal-table-header">
+                <h2>Deal Items (<span id="itemCount">0</span>)</h2>
+            </div>
+            <div id="dealContent">
+                <div class="empty-state" id="emptyState">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    <p>No items yet — search and add models above</p>
+                </div>
+                <table class="deal-table" id="dealTable" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Model</th>
+                            <th>Storage</th>
+                            <th>Grade</th>
+                            <th class="col-qty">Qty</th>
+                            <th class="col-price">Price</th>
+                            <th class="col-subtotal">Subtotal</th>
+                            <th class="col-actions"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="dealBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="deal-summary" id="dealSummary" style="display:none;">
+            <div class="summary-stats">
+                <div class="summary-stat">
+                    <span class="label">Line Items</span>
+                    <span class="value" id="sumItems">0</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="label">Total Units</span>
+                    <span class="value" id="sumUnits">0</span>
+                </div>
+                <div class="summary-stat">
+                    <span class="label">Total Value</span>
+                    <span class="value" id="sumValue">$0</span>
+                </div>
+            </div>
+            <div class="summary-actions">
+                <button class="btn-clear" onclick="clearDeal()">Clear All</button>
+                <button class="btn-export" onclick="exportDeal()">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    Export Excel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="wholecell-transformer.js"></script>
+    <script src="scripts/theme-switcher.js"></script>
+    <script>
+    /* ══════════════════════════════════════════════════════════
+       STATE
+       ══════════════════════════════════════════════════════════ */
+    let inventoryGroups = [];  // { key, model, storage, brand, grades: {A,B,C,'C (AMZ)'}, total }
+    let dealItems = [];        // { id, key, model, storage, grade, qty, price }
+    let selectedGroup = null;
+    let nextId = 1;
+
+    const ALLOWED_LOCATIONS = ['Ready Room', 'Processing'];
+
+    /* ══════════════════════════════════════════════════════════
+       INIT
+       ══════════════════════════════════════════════════════════ */
+    document.addEventListener('DOMContentLoaded', init);
+
+    async function init() {
+        loadDealFromStorage();
+        await loadInventory();
+        document.getElementById('loadingOverlay').classList.add('hidden');
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-wrap')) closeDropdown();
+        });
+    }
+
+    async function loadInventory() {
+        // Try localStorage cache first (shared with pricing-manager)
+        try {
+            const cached = localStorage.getItem('pricing_manager_cache');
+            if (cached) {
+                const raw = JSON.parse(cached);
+                if (raw && raw.length > 0) {
+                    processItems(raw);
+                    return;
+                }
+            }
+        } catch (e) {}
+
+        // Try local snapshot
+        try {
+            const resp = await fetch('data/available-inventory.json');
+            if (resp.ok) {
+                const snap = await resp.json();
+                if (snap.data && snap.data.length > 0) {
+                    processItems(snap.data);
+                    return;
+                }
+            }
+        } catch (e) {}
+
+        showToast('No inventory data found', 'error');
+    }
+
+    function processItems(rawItems) {
+        const items = typeof WholecellTransformer !== 'undefined' ? WholecellTransformer.transformAll(rawItems) : rawItems;
+        const map = new Map();
+        items.forEach(item => {
+            const location = item.location || '';
+            if (!ALLOWED_LOCATIONS.includes(location)) return;
+            const model = item.MODEL || item.model || 'Unknown';
+            const storage = item.STORAGE || item.storage || 'N/A';
+            const grade = item.GRADE || item.grade || '';
+            if (grade === 'D' || grade === 'Damaged' || grade === 'Defective') return;
+            const key = `${model}|${storage}`;
+            if (!map.has(key)) {
+                map.set(key, { key, model, storage, grades: { A: 0, B: 0, C: 0, 'C (AMZ)': 0 }, total: 0 });
+            }
+            const g = map.get(key);
+            if (g.grades.hasOwnProperty(grade)) g.grades[grade]++;
+            else g.grades['C']++;
+            g.total++;
+        });
+        inventoryGroups = Array.from(map.values()).filter(g => g.total > 0);
+        inventoryGroups.sort((a, b) => a.model.localeCompare(b.model) || a.storage.localeCompare(b.storage));
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       SEARCH + SELECT
+       ══════════════════════════════════════════════════════════ */
+    function onSearchFocus() {
+        onSearchInput();
+    }
+
+    function onSearchInput() {
+        const q = document.getElementById('modelSearch').value.trim().toLowerCase();
+        const dd = document.getElementById('searchDropdown');
+        let results = inventoryGroups;
+        if (q.length > 0) {
+            results = inventoryGroups.filter(g =>
+                g.model.toLowerCase().includes(q) || g.storage.toLowerCase().includes(q)
+            );
+        }
+        results = results.slice(0, 50);
+        if (results.length === 0) {
+            dd.innerHTML = '<div style="padding:14px;color:var(--text-secondary);font-size:14px;">No models found</div>';
+        } else {
+            dd.innerHTML = results.map(g => `
+                <div class="search-option" onclick="selectModel('${escJs(g.key)}')">
+                    <div>
+                        <div class="model-name">${esc(g.model)}</div>
+                        <div class="model-meta">${esc(g.storage)} · A:${g.grades.A} B:${g.grades.B} C:${g.grades.C} AMZ:${g.grades['C (AMZ)']}</div>
+                    </div>
+                    <div class="model-stock">${g.total} units</div>
+                </div>
+            `).join('');
+        }
+        dd.classList.add('visible');
+    }
+
+    function closeDropdown() {
+        document.getElementById('searchDropdown').classList.remove('visible');
+    }
+
+    function selectModel(key) {
+        selectedGroup = inventoryGroups.find(g => g.key === key);
+        if (!selectedGroup) return;
+        document.getElementById('modelSearch').value = `${selectedGroup.model} — ${selectedGroup.storage}`;
+        closeDropdown();
+        document.getElementById('addBtn').disabled = false;
+        updateStockHint();
+    }
+
+    function updateStockHint() {
+        if (!selectedGroup) { document.getElementById('stockHint').textContent = ''; return; }
+        const g = selectedGroup.grades;
+        document.getElementById('stockHint').textContent = `Available: A:${g.A}  B:${g.B}  C:${g.C}  AMZ:${g['C (AMZ)']}  Total:${selectedGroup.total}`;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       ADD ITEM
+       ══════════════════════════════════════════════════════════ */
+    function addItem() {
+        if (!selectedGroup) return;
+        const grade = document.getElementById('gradeSelect').value;
+        const qty = parseInt(document.getElementById('qtyInput').value) || 1;
+        const price = parseFloat(document.getElementById('priceInput').value) || 0;
+
+        dealItems.push({
+            id: nextId++,
+            key: selectedGroup.key,
+            model: selectedGroup.model,
+            storage: selectedGroup.storage,
+            grade,
+            qty: Math.max(1, qty),
+            price,
+            available: selectedGroup.grades[grade] || 0
+        });
+
+        // Reset form
+        document.getElementById('modelSearch').value = '';
+        document.getElementById('qtyInput').value = '1';
+        document.getElementById('priceInput').value = '';
+        document.getElementById('stockHint').textContent = '';
+        document.getElementById('addBtn').disabled = true;
+        selectedGroup = null;
+
+        renderDeal();
+        saveDealToStorage();
+        showToast('Item added');
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       RENDER
+       ══════════════════════════════════════════════════════════ */
+    function renderDeal() {
+        const empty = document.getElementById('emptyState');
+        const table = document.getElementById('dealTable');
+        const summary = document.getElementById('dealSummary');
+
+        if (dealItems.length === 0) {
+            empty.style.display = 'flex';
+            table.style.display = 'none';
+            summary.style.display = 'none';
+            document.getElementById('itemCount').textContent = '0';
+            return;
+        }
+
+        empty.style.display = 'none';
+        table.style.display = 'table';
+        summary.style.display = 'flex';
+
+        let totalUnits = 0, totalValue = 0;
+        const tbody = document.getElementById('dealBody');
+        tbody.innerHTML = dealItems.map((item, idx) => {
+            const sub = item.qty * item.price;
+            totalUnits += item.qty;
+            totalValue += sub;
+            return `
+            <tr>
+                <td>${idx + 1}</td>
+                <td>${esc(item.model)}</td>
+                <td>${esc(item.storage)}</td>
+                <td><span class="grade-badge">${esc(item.grade)}</span></td>
+                <td class="col-qty">
+                    <input type="number" min="1" value="${item.qty}" onchange="updateQty(${item.id}, this.value)" onfocus="this.select()">
+                </td>
+                <td class="col-price">
+                    <input type="number" min="0" step="1" value="${item.price || ''}" placeholder="0" onchange="updatePrice(${item.id}, this.value)" onfocus="this.select()">
+                </td>
+                <td class="col-subtotal">${sub > 0 ? '$' + sub.toLocaleString() : '—'}</td>
+                <td class="col-actions"><button class="btn-remove" onclick="removeItem(${item.id})" title="Remove">&times;</button></td>
+            </tr>`;
+        }).join('');
+
+        document.getElementById('itemCount').textContent = dealItems.length;
+        document.getElementById('sumItems').textContent = dealItems.length;
+        document.getElementById('sumUnits').textContent = totalUnits.toLocaleString();
+        document.getElementById('sumValue').textContent = '$' + totalValue.toLocaleString();
+    }
+
+    function updateQty(id, val) {
+        const item = dealItems.find(i => i.id === id);
+        if (item) { item.qty = Math.max(1, parseInt(val) || 1); renderDeal(); saveDealToStorage(); }
+    }
+    function updatePrice(id, val) {
+        const item = dealItems.find(i => i.id === id);
+        if (item) { item.price = Math.max(0, parseFloat(val) || 0); renderDeal(); saveDealToStorage(); }
+    }
+    function removeItem(id) {
+        dealItems = dealItems.filter(i => i.id !== id);
+        renderDeal(); saveDealToStorage();
+    }
+    function clearDeal() {
+        if (dealItems.length > 0 && !confirm('Clear all items?')) return;
+        dealItems = [];
+        document.getElementById('dealName').value = '';
+        document.getElementById('dealBuyer').value = '';
+        renderDeal(); saveDealToStorage();
+        showToast('Deal cleared');
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       PERSISTENCE
+       ══════════════════════════════════════════════════════════ */
+    function saveDealToStorage() {
+        try {
+            sessionStorage.setItem('deal_maker_state', JSON.stringify({
+                items: dealItems,
+                nextId,
+                name: document.getElementById('dealName').value,
+                buyer: document.getElementById('dealBuyer').value
+            }));
+        } catch (e) {}
+    }
+    function loadDealFromStorage() {
+        try {
+            const raw = sessionStorage.getItem('deal_maker_state');
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (data.items) dealItems = data.items;
+            if (data.nextId) nextId = data.nextId;
+            if (data.name) document.getElementById('dealName').value = data.name;
+            if (data.buyer) document.getElementById('dealBuyer').value = data.buyer;
+            renderDeal();
+        } catch (e) {}
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       EXPORT TO EXCEL
+       ══════════════════════════════════════════════════════════ */
+    function exportDeal() {
+        if (dealItems.length === 0) { showToast('No items to export', 'error'); return; }
+
+        const dealName = document.getElementById('dealName').value.trim() || 'Untitled Deal';
+        const buyer = document.getElementById('dealBuyer').value.trim();
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+        // Build worksheet data
+        const wsData = [];
+        wsData.push(['UNIVERSAL CELLULAR — Deal Sheet']);
+        wsData.push(['Deal', dealName]);
+        wsData.push(['Date', dateStr]);
+        if (buyer) wsData.push(['Buyer', buyer]);
+        wsData.push([]);
+        wsData.push(['#', 'MODEL', 'STORAGE', 'GRADE', 'QTY', 'PRICE', 'SUBTOTAL']);
+
+        let totalUnits = 0, totalValue = 0;
+        dealItems.forEach((item, idx) => {
+            const sub = item.qty * item.price;
+            totalUnits += item.qty;
+            totalValue += sub;
+            wsData.push([idx + 1, item.model, item.storage, item.grade, item.qty, item.price > 0 ? item.price : '', sub > 0 ? sub : '']);
+        });
+
+        wsData.push([]);
+        wsData.push(['', '', '', 'TOTAL', totalUnits, '', totalValue]);
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+        // Column widths
+        ws['!cols'] = [
+            { wch: 4 },   // #
+            { wch: 32 },  // Model
+            { wch: 10 },  // Storage
+            { wch: 10 },  // Grade
+            { wch: 8 },   // Qty
+            { wch: 10 },  // Price
+            { wch: 12 },  // Subtotal
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Deal');
+
+        const safeName = dealName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
+        const fileName = `Deal_${safeName}${buyer ? '_' + buyer.replace(/\s+/g, '_') : ''}_${now.toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        showToast(`Exported ${dealItems.length} items as Excel`, 'success');
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       THEME
+       ══════════════════════════════════════════════════════════ */
+    function toggleTheme() {
+        const html = document.documentElement;
+        const current = html.getAttribute('data-theme') || 'light';
+        const next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+    }
+    (function() {
+        const t = localStorage.getItem('theme');
+        if (t) document.documentElement.setAttribute('data-theme', t);
+    })();
+
+    /* ══════════════════════════════════════════════════════════
+       UTILS
+       ══════════════════════════════════════════════════════════ */
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function escJs(s) { return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+    function showToast(msg, type) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.style.background = type === 'error' ? '#ef4444' : type === 'success' ? '#16a34a' : 'var(--bg-header)';
+        t.style.color = (type === 'error' || type === 'success') ? '#fff' : 'var(--text-primary)';
+        t.classList.add('visible');
+        setTimeout(() => t.classList.remove('visible'), 2500);
+    }
+    </script>
+</body>
+</html>
