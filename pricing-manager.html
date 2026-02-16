@@ -1538,16 +1538,7 @@
             </h2>
             <button class="btn-sm ghost" onclick="closeDealPanel()" style="font-size:18px;">&times;</button>
         </div>
-        <div class="deal-panel-fields">
-            <div class="deal-field">
-                <label>Deal Name</label>
-                <input type="text" id="dealName" placeholder="Untitled Deal" oninput="saveDealState()">
-            </div>
-            <div class="deal-field">
-                <label>Buyer</label>
-                <input type="text" id="dealBuyer" placeholder="e.g. ABC Wireless" oninput="saveDealState()">
-            </div>
-        </div>
+        <!-- Deal name/buyer moved to proceed modal -->
 
         <!-- Deal Search + Add -->
         <div class="deal-add-section">
@@ -1608,13 +1599,8 @@
         </div>
         <div class="deal-actions" id="dealActions" style="display:none;">
             <button class="btn btn-secondary" onclick="clearDeal()">Clear</button>
-            <button class="btn btn-secondary" onclick="saveDealOnly()" title="Save deal to history">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                Save
-            </button>
-            <button class="btn btn-primary" onclick="exportDeal()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Export Excel
+            <button class="btn btn-primary" onclick="openProceedModal()" style="flex:2;">
+                Proceed →
             </button>
         </div>
     </div>
@@ -1698,6 +1684,51 @@
                 <button class="btn btn-primary" onclick="downloadExport()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                     Download Excel
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Proceed / Finalize Deal Modal ═══ -->
+    <div class="modal-overlay" id="proceedModal" onclick="if(event.target===this)closeProceedModal()">
+        <div class="modal" style="max-width:480px;">
+            <div class="modal-header">
+                <h2>Finalize Deal</h2>
+                <button class="btn btn-ghost" onclick="closeProceedModal()" style="font-size:18px;">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="dealName">Deal Name</label>
+                    <input type="text" id="dealName" placeholder="e.g. Q1 Bulk Order">
+                </div>
+                <div class="form-group">
+                    <label for="dealBuyer">Buyer</label>
+                    <input type="text" id="dealBuyer" placeholder="e.g. ABC Wireless">
+                </div>
+                <div class="export-preview" id="proceedPreview" style="margin-top:16px;">
+                    <div class="export-preview-row">
+                        <span class="label">Line Items</span>
+                        <span class="value" id="proceedItems">0</span>
+                    </div>
+                    <div class="export-preview-row">
+                        <span class="label">Total Units</span>
+                        <span class="value" id="proceedUnits">0</span>
+                    </div>
+                    <div class="export-preview-row">
+                        <span class="label">Total Value</span>
+                        <span class="value" id="proceedValue">$0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer" style="display:flex;gap:8px;">
+                <button class="btn btn-secondary" onclick="closeProceedModal()">Back</button>
+                <button class="btn btn-secondary" onclick="saveDealFromModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    Save
+                </button>
+                <button class="btn btn-primary" onclick="exportDealFromModal()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export Excel
                 </button>
             </div>
         </div>
@@ -2743,6 +2774,33 @@
     /* ══════════════════════════════════════════════════════════
        DEAL EXPORT
        ══════════════════════════════════════════════════════════ */
+    function openProceedModal() {
+        if (dealItems.size === 0) { showToast('No items in deal', 'error'); return; }
+        let totalUnits = 0, totalValue = 0;
+        dealItems.forEach(item => { totalUnits += item.offerQty; totalValue += item.offerQty * item.offerPrice; });
+        document.getElementById('proceedItems').textContent = dealItems.size;
+        document.getElementById('proceedUnits').textContent = totalUnits.toLocaleString();
+        document.getElementById('proceedValue').textContent = '$' + totalValue.toLocaleString();
+        const modal = document.getElementById('proceedModal');
+        modal.classList.add('visible');
+        modal.style.display = 'flex';
+        // Focus deal name input
+        setTimeout(() => document.getElementById('dealName').focus(), 100);
+    }
+    function closeProceedModal() {
+        const modal = document.getElementById('proceedModal');
+        modal.classList.remove('visible');
+        modal.style.display = 'none';
+    }
+    function saveDealFromModal() {
+        saveDealOnly();
+        closeProceedModal();
+    }
+    function exportDealFromModal() {
+        exportDeal();
+        closeProceedModal();
+    }
+
     function exportDeal() {
         if (dealItems.size === 0) { showToast('No items in deal', 'error'); return; }
 
