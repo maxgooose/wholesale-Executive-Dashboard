@@ -29,7 +29,9 @@
         "verification_notes": "Live site confirmed: Location column shows RR/P badges for all 367 models. Sort dropdown has 'Ready Room First' and 'Processing First' options. Location filter chips show Ready Room (2935) and Processing (5922). All working."
     },
     "task4_incremental_sync": {
-        "planned": false,
+        "planned": true,
+        "planned_at": "2026-02-16T05:00:00-08:00",
+        "plan_notes": "WholeCell API has NO date filtering (updated_since/updated_at_min silently ignored). Proposed hash-based diff sync: fingerprint each item after sync, compare on next run, track adds/removes/changes, skip blob upload when unchanged.",
         "executed": false,
         "verified": false
     },

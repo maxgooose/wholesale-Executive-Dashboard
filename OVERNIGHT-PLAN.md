@@ -176,10 +176,49 @@ It's a complete solution. The pricing manager is where Harb sets prices — know
 ### No Blockers
 Data is available. Location field is already extracted by the transformer. Just needs UI exposure.
 
-## Task 4: Incremental Inventory Sync
-- Explore WholeCell API for date-based/updated endpoints
-- Goal: only sync changes (adds/removes/updates), not full inventory
-- Check API docs for `updated_since`, `modified_after` type params
+## Task 4: Incremental Inventory Sync ✅ PLANNED
+
+### API Investigation Results
+Tested WholeCell API (`https://api.wholecell.io/api/v1/inventories`) with auth:
+- **`?updated_since=`** — ignored, returns same 173 pages (17,250 items)
+- **`?updated_at_min=`** — ignored, returns same 173 pages
+- **`?sort=updated_at&direction=desc`** — ignored, same order
+- **Conclusion: API has NO server-side date filtering.** Unknown params are silently ignored.
+
+Each item has `created_at` and `updated_at` fields (ISO timestamps with timezone).
+Current sync: 173 pages × 1s rate limit = ~3 min minimum. Output: 5.7 MB JSON.
+
+### Proposed Approach: Hash-Based Diff Sync
+Since the API doesn't support incremental queries, we diff client-side:
+
+1. **After each full sync, save a fingerprint file** (`data/.inventory-fingerprint.json`):
+   - Map of `item.id → hash(status + location + sale_price + updated_at)`
+   - Total count + sync timestamp
+2. **On next sync, still fetch all pages** (unavoidable with this API), but:
+   - Compare each item's hash against saved fingerprint
+   - Track: `added[]`, `removed[]`, `changed[]` (with old→new diff)
+   - Save diff as `data/sync-diff-YYYY-MM-DDTHH.json`
+3. **Optimization: Early termination** — If API returns items in consistent order and we detect N consecutive unchanged items, we *could* stop early. But risky — items may reorder. Better to always fetch all but process faster.
+4. **Real win: Skip Blob upload if unchanged** — If 0 adds + 0 removes + 0 changes → skip the Vercel Blob upload entirely (saves time + bandwidth).
+
+### Implementation Plan
+| File | Change | Notes |
+|------|--------|-------|
+| `scripts/sync-wholecell.js` | Add `--diff` flag | After fetch, compare against fingerprint |
+| `scripts/sync-wholecell.js` | Generate fingerprint after sync | Save `data/.inventory-fingerprint.json` |
+| `scripts/sync-wholecell.js` | Skip blob upload when no changes | Check diff result before uploading |
+| `data/sync-diff-*.json` | Diff output files | Added/removed/changed items per sync |
+
+### What This Buys Us
+- **Visibility**: Know exactly what changed between syncs (new inventory, sold items, price changes)
+- **Dashboard alerts**: Could surface "12 new items since last sync" or "45 items sold"
+- **Skip redundant uploads**: If nothing changed, don't re-upload 5.7 MB to Blob
+- **Future**: If WholeCell ever adds date filtering, we're ready to swap in
+
+### Not Worth Doing
+- Partial page fetching (API doesn't support it)
+- Webhook-based sync (WholeCell doesn't offer webhooks)
+- Caching individual pages (items move between pages as inventory changes)
 
 ## Task 5: Past Deals — Export & Save
 - Clock modal opens now but deals don't save properly after export
