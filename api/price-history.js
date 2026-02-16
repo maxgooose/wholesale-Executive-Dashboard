@@ -17,27 +17,27 @@ export default async function handler(req, res) {
     const { model, storage } = req.query;
 
     if (model && storage) {
-      // History for a specific model+storage
-      const rows = await sql(
-        'SELECT price, created_at FROM price_history WHERE model = $1 AND storage = $2 ORDER BY created_at DESC LIMIT 50',
-        [model, storage]
-      );
+      const rows = await sql`
+        SELECT price, created_at FROM price_history 
+        WHERE model = ${model} AND storage = ${storage} 
+        ORDER BY created_at DESC LIMIT 50
+      `;
       return res.json({ model, storage, history: rows });
     }
 
     if (model) {
-      // All storage variants for a model
-      const rows = await sql(
-        'SELECT storage, price, created_at FROM price_history WHERE model = $1 ORDER BY created_at DESC LIMIT 100',
-        [model]
-      );
+      const rows = await sql`
+        SELECT storage, price, created_at FROM price_history 
+        WHERE model = ${model} 
+        ORDER BY created_at DESC LIMIT 100
+      `;
       return res.json({ model, history: rows });
     }
 
-    // All recent price changes
-    const rows = await sql(
-      'SELECT model, storage, price, created_at FROM price_history ORDER BY created_at DESC LIMIT 200'
-    );
+    const rows = await sql`
+      SELECT model, storage, price, created_at FROM price_history 
+      ORDER BY created_at DESC LIMIT 200
+    `;
     return res.json({ history: rows });
   } catch (err) {
     console.error('Price history API error:', err);
