@@ -436,15 +436,6 @@
                         CSV
                     </button>
                     
-                    <button class="theme-toggle" onclick="themeToggle()" title="Toggle theme">
-                        <svg class="icon-sun" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-                        </svg>
-                        <svg class="icon-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
-                        </svg>
-                    </button>
-
                     <select id="locationFilter" class="btn btn-secondary" style="cursor:pointer;padding:8px 12px;font-size:13px;border-radius:8px;" onchange="onLocationFilterChange()">
                         <option value="all">All Locations</option>
                     </select>
@@ -660,20 +651,7 @@
 
         // Chart.js theme configuration
         function getChartColors() {
-            const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-            const colors = isDark ? {
-                primary: '#38bdf8',
-                secondary: '#a78bfa',
-                positive: '#34d399',
-                warning: '#fbbf24',
-                negative: '#f87171',
-                accent: '#f472b6',
-                text: '#f1f5f9',
-                textMuted: '#94a3b8',
-                grid: 'rgba(255, 255, 255, 0.05)',
-                border: 'rgba(255, 255, 255, 0.1)',
-                shadow: 'rgba(0, 0, 0, 0.5)'
-            } : {
+            const colors = {
                 primary: '#0ea5e9',
                 secondary: '#8b5cf6',
                 positive: '#10b981',
@@ -686,7 +664,7 @@
                 border: 'rgba(0, 0, 0, 0.1)',
                 shadow: 'rgba(0, 0, 0, 0.1)'
             };
-            return { ...colors, isDark };
+            return { ...colors, isDark: false };
         }
 
         function getChartDefaults() {
@@ -710,7 +688,7 @@
                         }
                     },
                     tooltip: {
-                        backgroundColor: colors.isDark ? 'rgba(23, 23, 23, 0.9)' : 'rgba(255, 255, 255, 0.9)',
+                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
                         titleColor: colors.text,
                         bodyColor: colors.textMuted,
                         borderColor: colors.border,

@@ -115,58 +115,7 @@
   --gradient-3: #fae8ff;
 }
 
-/* Dark Theme */
-[data-theme="dark"] {
-  --bg-primary: #0a0a0a;
-  --bg-secondary: rgba(30, 30, 30, 0.5);
-  --bg-card: rgba(23, 23, 23, 0.6); /* More transparent */
-  --bg-elevated: rgba(31, 31, 31, 0.7);
-  --bg-hover: rgba(38, 38, 38, 0.6);
-  --bg-active: rgba(51, 51, 51, 0.6);
-
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-default: rgba(255, 255, 255, 0.12);
-  --border-strong: rgba(255, 255, 255, 0.2);
-
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --text-tertiary: #94a3b8;
-  --text-muted: #64748b;
-  --text-inverse: #0f172a;
-
-  --accent: #38bdf8;
-  --accent-hover: #0ea5e9;
-  --accent-subtle: rgba(14, 165, 233, 0.2);
-
-  --positive: #34d399;
-  --positive-subtle: rgba(52, 211, 153, 0.2);
-  --negative: #f87171;
-  --negative-subtle: rgba(248, 113, 113, 0.2);
-  --warning: #fbbf24;
-  --warning-subtle: rgba(251, 191, 36, 0.2);
-  --info: #60a5fa;
-  --info-subtle: rgba(96, 165, 250, 0.2);
-
-  --chart-1: #38bdf8;
-  --chart-2: #a78bfa;
-  --chart-3: #34d399;
-  --chart-4: #fbbf24;
-  --chart-5: #f87171;
-  --chart-6: #f472b6;
-
-  --header-bg: rgba(10, 10, 10, 0.7);
-  --header-text: #f1f5f9;
-
-  /* Animated Gradient Colors (Dark) */
-  --gradient-1: #0f172a;
-  --gradient-2: #1e1b4b;
-  --gradient-3: #312e81;
-
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.4);
-}
+/* Dark theme removed — light only */
 
 /* ============================================
    BASE STYLES
@@ -439,11 +388,6 @@ p {
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-}
-
-[data-theme="dark"] .card-glass {
-  background: rgba(23, 23, 23, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .card-header {
@@ -857,9 +801,7 @@ p {
   display: block;
 }
 
-[data-theme="dark"] .theme-toggle .icon-sun {
-  display: block;
-}
+/* theme toggle removed */
 
 /* ============================================
    MODALS & OVERLAYS
@@ -1254,7 +1196,5 @@ p {
   height: 300px;
 }
 
-[data-theme="dark"] .chart-container canvas {
-  filter: brightness(1.1);
-}
+/* dark chart override removed */
 

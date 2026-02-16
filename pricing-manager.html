@@ -539,7 +539,7 @@
             color: #991b1b;
             display: none;
         }
-        [data-theme="dark"] .error-banner { color: var(--negative); }
+        /* light mode only */
         .error-banner.visible {
             display: flex;
             align-items: center;
@@ -1392,11 +1392,6 @@
             <!-- Upload -->
             <button class="icon-btn" onclick="openUploadModal()" title="Upload pricing sheet">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            </button>
-
-            <!-- Theme -->
-            <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
             </button>
 
             <div class="separator"></div>
@@ -2946,8 +2941,7 @@
     function showLoading(show, text) { const el = document.getElementById('loadingOverlay'); if (show) { el.classList.remove('hidden'); if (text) document.getElementById('loadingText').textContent = text; } else { el.classList.add('hidden'); } }
     function showError(msg) { document.getElementById('errorText').textContent = msg; document.getElementById('errorBanner').classList.add('visible'); }
     function showToast(msg, type = 'success') { const c = document.getElementById('toastContainer'); const t = document.createElement('div'); t.className = 'toast ' + type; t.textContent = msg; c.appendChild(t); setTimeout(() => t.remove(), 3500); }
-    function toggleTheme() { const c = document.documentElement.getAttribute('data-theme') || 'light'; const n = c === 'dark' ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', n); localStorage.setItem('theme', n); }
-    (function() { const s = localStorage.getItem('theme'); if (s) document.documentElement.setAttribute('data-theme', s); })();
+    // Light mode only
     function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
     function escJs(s) { return s.replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
 
