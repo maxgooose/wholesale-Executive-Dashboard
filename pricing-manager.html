@@ -1313,7 +1313,7 @@
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner"></div>
-        <div class="loading-text" id="loadingText">Connecting to Wholecell...</div>
+        <div class="loading-text" id="loadingText">Loading inventory...</div>
         <div class="loading-progress">
             <div class="loading-progress-bar" id="loadingBar"></div>
         </div>
@@ -1864,7 +1864,7 @@
 
         // Fallback to proxy
         showLoading(true, 'Fetching Ready Room + Processing...');
-        document.getElementById('loadingDetail').textContent = 'Connecting...';
+        document.getElementById('loadingDetail').textContent = 'Loading...';
         const rawItems = await fetchPricingInventory((cur, tot) => {
             const pct = Math.round((cur / tot) * 100);
             document.getElementById('loadingBar').style.width = pct + '%';
