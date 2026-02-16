@@ -1110,10 +1110,10 @@
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: var(--z-modal);
+            z-index: 10000 !important;
             padding: var(--space-6);
         }
-        .modal-overlay.visible { display: flex; }
+        .modal-overlay.visible { display: flex !important; }
         .modal {
             background: var(--bg-card);
             border-radius: var(--radius-xl);
@@ -2819,21 +2819,25 @@
        DEAL EXPORT
        ══════════════════════════════════════════════════════════ */
     function openProceedModal() {
-        if (dealItems.size === 0) { showToast('No items in deal', 'error'); return; }
-        let totalUnits = 0, totalValue = 0;
-        dealItems.forEach(item => { totalUnits += item.offerQty; totalValue += item.offerQty * item.offerPrice; });
-        document.getElementById('proceedItems').textContent = dealItems.size;
-        document.getElementById('proceedUnits').textContent = totalUnits.toLocaleString();
-        document.getElementById('proceedValue').textContent = '$' + totalValue.toLocaleString();
-        const modal = document.getElementById('proceedModal');
-        modal.style.display = 'flex';
-        modal.classList.add('visible');
-        modal.style.zIndex = '9999';
-        setTimeout(() => document.getElementById('dealName').focus(), 100);
+        try {
+            if (dealItems.size === 0) { showToast('No items in deal', 'error'); return; }
+            let totalUnits = 0, totalValue = 0;
+            dealItems.forEach(item => { totalUnits += item.offerQty; totalValue += item.offerQty * (item.offerPrice || 0); });
+            document.getElementById('proceedItems').textContent = dealItems.size;
+            document.getElementById('proceedUnits').textContent = totalUnits.toLocaleString();
+            document.getElementById('proceedValue').textContent = '$' + totalValue.toLocaleString();
+            const modal = document.getElementById('proceedModal');
+            modal.style.cssText = 'display:flex !important; z-index:10000 !important; position:fixed; inset:0; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:24px;';
+            modal.classList.add('visible');
+            setTimeout(() => { const dn = document.getElementById('dealName'); if (dn) dn.focus(); }, 100);
+        } catch (e) {
+            console.error('openProceedModal error:', e);
+            alert('Error opening deal modal: ' + e.message);
+        }
     }
     function closeProceedModal() {
         const modal = document.getElementById('proceedModal');
-        modal.style.display = 'none';
+        modal.style.cssText = 'display:none;';
         modal.classList.remove('visible');
     }
     function saveDealFromModal() {
