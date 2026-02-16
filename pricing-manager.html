@@ -2747,14 +2747,18 @@
     function openPastDealsModal() {
         const modal = document.getElementById('pastDealsModal');
         if (!modal) { alert('Past Deals modal not found'); return; }
-        modal.classList.add('visible');
+        modal.classList.add('visible', 'active');
         modal.style.display = 'flex';
+        const inner = modal.querySelector('.modal');
+        if (inner) inner.classList.add('active');
         loadPastDealsModal();
     }
     function closePastDealsModal() {
         const modal = document.getElementById('pastDealsModal');
-        modal.classList.remove('visible');
+        modal.classList.remove('visible', 'active');
         modal.style.display = 'none';
+        const inner = modal.querySelector('.modal');
+        if (inner) inner.classList.remove('active');
     }
     function loadPastDealsModal() {
         const body = document.getElementById('pastDealsModalBody');
@@ -2790,9 +2794,17 @@
         document.getElementById('uploadResult').style.display = 'none';
         document.getElementById('uploadFooter').style.display = 'none';
         document.getElementById('fileInput').value = '';
-        document.getElementById('uploadModal').classList.add('visible');
+        const um = document.getElementById('uploadModal');
+        um.classList.add('visible', 'active');
+        const umInner = um.querySelector('.modal');
+        if (umInner) umInner.classList.add('active');
     }
-    function closeUploadModal() { document.getElementById('uploadModal').classList.remove('visible'); }
+    function closeUploadModal() { 
+        const um = document.getElementById('uploadModal');
+        um.classList.remove('visible', 'active');
+        const umInner = um.querySelector('.modal');
+        if (umInner) umInner.classList.remove('active');
+    }
 
     function handleFileDrop(files) {
         if (!files || !files.length) return;
@@ -2893,9 +2905,17 @@
         document.getElementById('previewModels').textContent = rows.length.toLocaleString();
         document.getElementById('previewUnits').textContent = units.toLocaleString();
         document.getElementById('previewValue').textContent = '$' + val.toLocaleString();
-        document.getElementById('exportModal').classList.add('visible');
+        const em = document.getElementById('exportModal');
+        em.classList.add('visible', 'active');
+        const emInner = em.querySelector('.modal');
+        if (emInner) emInner.classList.add('active');
     }
-    function closeExportModal() { document.getElementById('exportModal').classList.remove('visible'); }
+    function closeExportModal() { 
+        const em = document.getElementById('exportModal');
+        em.classList.remove('visible', 'active');
+        const emInner = em.querySelector('.modal');
+        if (emInner) emInner.classList.remove('active');
+    }
 
     function getExportRows() {
         if (selectedRows.size > 0) return inventoryGroups.filter(g => selectedRows.has(g.key));
