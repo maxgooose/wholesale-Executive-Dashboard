@@ -1474,6 +1474,10 @@
 
         <div class="stats-right">
             <span class="item-count" id="filteredCount"></span>
+            <button class="btn-sm primary" onclick="exportCatalog()" style="margin-left:8px;display:inline-flex;align-items:center;gap:4px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export Catalog
+            </button>
         </div>
     </div>
 
@@ -3140,6 +3144,51 @@
     /* ══════════════════════════════════════════════════════════
        LEGACY EXPORT
        ══════════════════════════════════════════════════════════ */
+    function exportCatalog() {
+        const rows = filteredGroups.length > 0 ? filteredGroups : inventoryGroups;
+        if (rows.length === 0) { showToast('No data to export', 'error'); return; }
+
+        const now = new Date();
+        const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        const wsData = [];
+        wsData.push(['UNIVERSAL CELLULAR — Full Catalog']);
+        wsData.push(['Date', dateStr]);
+        wsData.push(['Items', rows.length, 'Total Units', rows.reduce((s, g) => s + g.total, 0)]);
+        wsData.push([]);
+        wsData.push(['MODEL', 'STORAGE', 'BRAND', 'A', 'B', 'C (AMZ)', 'C', 'TOTAL', 'PRICE', 'VALUE',
+            'Ready Room', 'Processing', 'Receiving', 'Damaged', 'Locked', 'Inbound']);
+
+        let totalUnits = 0, totalValue = 0;
+        rows.forEach(g => {
+            const val = getRowValue(g);
+            totalUnits += g.total;
+            totalValue += val;
+            const loc = g.locations || {};
+            wsData.push([
+                g.model, g.storage, g.brand,
+                g.grades.A || '', g.grades.B || '', g.grades['C (AMZ)'] || '', g.grades.C || '',
+                g.total, g.price > 0 ? g.price : '', val > 0 ? val : '',
+                loc['Ready Room'] || '', loc['Processing'] || '', loc['Receiving'] || '',
+                loc['Damaged'] || '', loc['Locked'] || '', loc['Inbound'] || ''
+            ]);
+        });
+        wsData.push([]);
+        wsData.push(['', '', '', '', '', '', 'TOTALS', totalUnits, '', totalValue]);
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        ws['!cols'] = [
+            { wch: 36 }, { wch: 8 }, { wch: 10 },
+            { wch: 5 }, { wch: 5 }, { wch: 8 }, { wch: 5 },
+            { wch: 7 }, { wch: 8 }, { wch: 10 },
+            { wch: 11 }, { wch: 11 }, { wch: 10 }, { wch: 9 }, { wch: 8 }, { wch: 9 }
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Catalog');
+        const fileName = `Universal_Catalog_${now.toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        showToast(`Exported ${rows.length} models as Excel`, 'success');
+    }
+
     function openExportModal() {
         const rows = getExportRows();
         let units = 0, val = 0;
