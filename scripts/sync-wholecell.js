@@ -48,7 +48,7 @@ const APP_SECRET = process.env.WHOLECELL_APP_SECRET;
 const API_BASE = 'https://api.wholecell.io/api/v1/inventories';
 const RATE_LIMIT_MS = 1000;
 const MAX_RETRIES = 5;
-const ALLOWED_LOCATIONS = ['Ready Room', 'Processing'];
+const ALLOWED_LOCATIONS = null; // No location filter — include ALL locations
 const LOCAL_OUTPUT = path.join(__dirname, '..', 'data', 'available-inventory.json');
 const CHECKPOINT_FILE = path.join(__dirname, '..', 'data', '.sync-checkpoint.json');
 const FINGERPRINT_FILE = path.join(__dirname, '..', 'data', '.inventory-fingerprint.json');
@@ -205,8 +205,8 @@ function loadCheckpoint() {
   return null;
 }
 
-async function fetchPage(page = 1, retries = 0) {
-  const url = `${API_BASE}?status=Available&page=${page}`;
+async function fetchPage(page = 1, retries = 0, status = 'Available') {
+  const url = `${API_BASE}?status=${encodeURIComponent(status)}&page=${page}`;
 
   try {
     console.log(`  Fetching page ${page}...`);
@@ -254,77 +254,77 @@ async function fetchPage(page = 1, retries = 0) {
 }
 
 async function syncInventory() {
-  console.log('=== Wholecell Inventory Sync (Available Only) ===');
+  const STATUSES_TO_FETCH = ['Available', 'Inbound'];
+  console.log('=== Wholecell Inventory Sync ===');
   console.log(`Time: ${new Date().toISOString()}`);
   console.log(`Mode: ${LOCAL_ONLY ? 'LOCAL ONLY' : 'Full (Blob + Local)'}`);
-  console.log(`Locations: ${ALLOWED_LOCATIONS.join(', ')}\n`);
+  console.log(`Statuses: ${STATUSES_TO_FETCH.join(', ')}`);
+  console.log(`Locations: ALL (no filter)\n`);
 
   if (!APP_ID || !APP_SECRET) throw new Error('Missing WHOLECELL_APP_ID or WHOLECELL_APP_SECRET');
 
-  // Check for resume
-  let checkpoint = RESUME ? loadCheckpoint() : null;
-  let allItems = checkpoint?.items || [];
-  let startPage = checkpoint ? checkpoint.lastPage + 1 : 1;
-  let totalPages = checkpoint?.totalPages || null;
-
-  // Fetch first page if not resuming
-  if (!checkpoint) {
-    console.log('Fetching page 1 (status=Available)...');
-    const firstPage = await fetchPage(1);
-    if (!firstPage || !firstPage.data) throw new Error('Invalid response from Wholecell API on page 1');
-    totalPages = firstPage.pages || 1;
-    allItems = [...firstPage.data];
-    console.log(`Total pages: ${totalPages} (~${totalPages * 100} available items)`);
-    console.log(`Estimated time: ~${Math.ceil(totalPages * RATE_LIMIT_MS / 1000)}s\n`);
-    startPage = 2;
-    saveCheckpoint(allItems, 1, totalPages);
-  }
-
   const startTime = Date.now();
+  let allItems = [];
   let failedPages = 0;
+  let totalPagesAll = 0;
 
-  for (let page = startPage; page <= totalPages; page++) {
-    await sleep(RATE_LIMIT_MS);
-    const result = await fetchPage(page);
-    if (result && result.data) {
-      allItems.push(...result.data);
-    } else {
-      failedPages++;
+  for (const status of STATUSES_TO_FETCH) {
+    console.log(`\n--- Fetching status: ${status} ---`);
+    const firstPage = await fetchPage(1, 0, status);
+    if (!firstPage || !firstPage.data) {
+      console.warn(`No data for status=${status}, skipping.`);
+      continue;
     }
+    const totalPages = firstPage.pages || 1;
+    totalPagesAll += totalPages;
+    allItems.push(...firstPage.data);
+    console.log(`${status}: ${totalPages} pages (~${totalPages * 100} items)`);
 
-    // Checkpoint + progress every 25 pages
-    if (page % 25 === 0 || page === totalPages) {
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-      const percent = ((page / totalPages) * 100).toFixed(1);
-      console.log(`  Page ${page}/${totalPages} (${percent}%) — ${allItems.length} items — ${elapsed}s`);
-      saveCheckpoint(allItems, page, totalPages);
+    for (let page = 2; page <= totalPages; page++) {
+      await sleep(RATE_LIMIT_MS);
+      const result = await fetchPage(page, 0, status);
+      if (result && result.data) {
+        allItems.push(...result.data);
+      } else {
+        failedPages++;
+      }
+
+      if (page % 25 === 0 || page === totalPages) {
+        const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
+        console.log(`  Page ${page}/${totalPages} — ${allItems.length} total items — ${elapsed}s`);
+      }
     }
   }
 
   const fetchDuration = ((Date.now() - startTime) / 1000).toFixed(0);
   console.log(`\nFetch complete: ${allItems.length} items in ${fetchDuration}s (${failedPages} skipped pages)`);
 
-  // Filter to allowed locations
-  const filtered = allItems.filter(item => ALLOWED_LOCATIONS.includes(item.location?.name));
+  // No location filtering — include everything
+  const filtered = allItems;
   const locationBreakdown = {};
+  const statusBreakdown = {};
   filtered.forEach(item => {
-    const loc = item.location.name;
+    const loc = item.location?.name || 'No Location';
     locationBreakdown[loc] = (locationBreakdown[loc] || 0) + 1;
+    const s = item.status || 'Unknown';
+    statusBreakdown[s] = (statusBreakdown[s] || 0) + 1;
   });
 
-  console.log(`\nFiltered: ${filtered.length} items`);
-  console.log('Breakdown:', locationBreakdown);
+  console.log(`\nTotal: ${filtered.length} items`);
+  console.log('By Status:', statusBreakdown);
+  console.log('By Location:', locationBreakdown);
 
   // Build payload
   const payload = {
     metadata: {
       timestamp: new Date().toISOString(),
       totalItems: filtered.length,
-      totalAvailable: allItems.length,
-      totalPages,
+      totalFetched: allItems.length,
+      totalPages: totalPagesAll,
       failedPages,
       fetchDurationSeconds: parseInt(fetchDuration),
-      locations: ALLOWED_LOCATIONS,
+      statuses: ['Available', 'Inbound'],
+      statusBreakdown,
       locationBreakdown,
       source: 'wholecell-api',
     },
@@ -403,7 +403,9 @@ async function syncInventory() {
   }
 
   console.log('\n=== Sync Complete ===');
-  console.log(`Items: ${filtered.length} (${Object.entries(locationBreakdown).map(([k,v])=>`${k}: ${v}`).join(', ')})`);
+  console.log(`Items: ${filtered.length}`);
+  console.log(`Statuses: ${Object.entries(statusBreakdown).map(([k,v])=>`${k}: ${v}`).join(', ')}`);
+  console.log(`Locations: ${Object.entries(locationBreakdown).map(([k,v])=>`${k}: ${v}`).join(', ')}`);
   console.log(`Duration: ${fetchDuration}s | Failed pages: ${failedPages}`);
   if (diff) console.log(`Changes: +${diff.summary.added} / -${diff.summary.removed} / ~${diff.summary.changed}`);
 

@@ -434,7 +434,11 @@
                         CSV
                     </button>
                     
-                    <select id="locationFilter" class="btn btn-secondary" style="cursor:pointer;padding:8px 12px;font-size:13px;border-radius:8px;" onchange="onLocationFilterChange()">
+                    <select id="statusFilter" class="btn btn-secondary" style="cursor:pointer;padding:8px 12px;font-size:13px;border-radius:8px;" onchange="onFilterChange()">
+                        <option value="all">All Statuses</option>
+                    </select>
+
+                    <select id="locationFilter" class="btn btn-secondary" style="cursor:pointer;padding:8px 12px;font-size:13px;border-radius:8px;" onchange="onFilterChange()">
                         <option value="all">All Locations</option>
                     </select>
 
@@ -733,7 +737,7 @@
                             allInventoryData = transformedItems;
                             inventoryData = transformedItems;
                             document.getElementById('lastUpdated').textContent = `${rawData.count || rawData.data.length} items loaded`;
-                            populateLocationFilter();
+                            populateFilters();
                             updateDashboard();
                             return;
                         }
@@ -755,13 +759,49 @@
             }
         }
 
-        // Populate the location filter dropdown
+        // Populate both filter dropdowns
+        function populateFilters() {
+            // Status filter
+            const statusSelect = document.getElementById('statusFilter');
+            if (statusSelect) {
+                const statusCounts = {};
+                allInventoryData.forEach(item => {
+                    const s = item.STATUS || 'Unknown';
+                    statusCounts[s] = (statusCounts[s] || 0) + 1;
+                });
+                const sortedStatuses = Object.entries(statusCounts).sort((a, b) => b[1] - a[1]);
+                const currentStatus = statusSelect.value;
+                statusSelect.innerHTML = '';
+
+                const allStatusOpt = document.createElement('option');
+                allStatusOpt.value = 'all';
+                allStatusOpt.textContent = `All Statuses (${allInventoryData.length})`;
+                statusSelect.appendChild(allStatusOpt);
+
+                sortedStatuses.forEach(([status, count]) => {
+                    const opt = document.createElement('option');
+                    opt.value = status;
+                    opt.textContent = `${status} (${count})`;
+                    statusSelect.appendChild(opt);
+                });
+
+                if (currentStatus && currentStatus !== 'all') {
+                    statusSelect.value = sortedStatuses.some(([s]) => s === currentStatus) ? currentStatus : 'all';
+                }
+            }
+
+            // Location filter
+            populateLocationFilter();
+        }
+
         function populateLocationFilter() {
             const select = document.getElementById('locationFilter');
             if (!select) return;
 
+            // Use currently filtered data (after status filter) to show relevant locations
+            const sourceData = getStatusFilteredData();
             const locationCounts = {};
-            allInventoryData.forEach(item => {
+            sourceData.forEach(item => {
                 const loc = item.location || 'No Location';
                 locationCounts[loc] = (locationCounts[loc] || 0) + 1;
             });
@@ -772,7 +812,7 @@
 
             const allOpt = document.createElement('option');
             allOpt.value = 'all';
-            allOpt.textContent = `All Locations (${allInventoryData.length})`;
+            allOpt.textContent = `All Locations (${sourceData.length})`;
             select.appendChild(allOpt);
 
             sorted.forEach(([loc, count]) => {
@@ -787,15 +827,27 @@
             }
         }
 
-        // Handle location filter change
-        function onLocationFilterChange() {
-            const select = document.getElementById('locationFilter');
-            const loc = select ? select.value : 'all';
+        function getStatusFilteredData() {
+            const statusSelect = document.getElementById('statusFilter');
+            const status = statusSelect ? statusSelect.value : 'all';
+            if (status === 'all') return allInventoryData;
+            return allInventoryData.filter(item => (item.STATUS || 'Unknown') === status);
+        }
+
+        // Handle any filter change
+        function onFilterChange() {
+            const statusFiltered = getStatusFilteredData();
+
+            // Update location filter options based on status selection
+            populateLocationFilter();
+
+            const locSelect = document.getElementById('locationFilter');
+            const loc = locSelect ? locSelect.value : 'all';
 
             if (loc === 'all') {
-                inventoryData = allInventoryData;
+                inventoryData = statusFiltered;
             } else {
-                inventoryData = allInventoryData.filter(item => (item.location || 'No Location') === loc);
+                inventoryData = statusFiltered.filter(item => (item.location || 'No Location') === loc);
             }
 
             updateDashboard();
