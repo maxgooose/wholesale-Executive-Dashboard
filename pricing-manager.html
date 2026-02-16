@@ -1600,7 +1600,7 @@
     </div>
 
     <!-- ═══ Past Deals Modal ═══ -->
-    <div class="modal-overlay" id="pastDealsModal">
+    <div class="modal-overlay" id="pastDealsModal" onclick="if(event.target===this)closePastDealsModal()">
         <div class="modal" style="max-width:600px;max-height:80vh;">
             <div class="modal-header">
                 <h3>Past Deals</h3>
@@ -2745,11 +2745,16 @@
        PAST DEALS MODAL (top bar button)
        ══════════════════════════════════════════════════════════ */
     function openPastDealsModal() {
-        document.getElementById('pastDealsModal').classList.add('visible');
+        const modal = document.getElementById('pastDealsModal');
+        if (!modal) { alert('Past Deals modal not found'); return; }
+        modal.classList.add('visible');
+        modal.style.display = 'flex';
         loadPastDealsModal();
     }
     function closePastDealsModal() {
-        document.getElementById('pastDealsModal').classList.remove('visible');
+        const modal = document.getElementById('pastDealsModal');
+        modal.classList.remove('visible');
+        modal.style.display = 'none';
     }
     function loadPastDealsModal() {
         const body = document.getElementById('pastDealsModalBody');
