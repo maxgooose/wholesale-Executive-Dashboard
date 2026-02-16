@@ -1583,34 +1583,6 @@
             </div>
         </div>
 
-        <!-- Deal Maker: Search + Add -->
-        <div class="deal-add-section">
-            <div class="deal-add-label">Add Item</div>
-            <div class="deal-search-wrap">
-                <input type="text" id="dealModelSearch" placeholder="Search model..." autocomplete="off" oninput="onDealSearch()" onfocus="onDealSearch()">
-                <div class="deal-search-dropdown" id="dealSearchDropdown"></div>
-            </div>
-            <div class="deal-add-row" id="dealAddRow" style="display:none;">
-                <div class="deal-add-selected" id="dealAddSelected"></div>
-                <div class="deal-add-fields">
-                    <div class="deal-add-field">
-                        <label>Grade</label>
-                        <select id="dealGradeSelect"><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="C (AMZ)">AMZ</option></select>
-                    </div>
-                    <div class="deal-add-field">
-                        <label>Qty</label>
-                        <input type="number" id="dealQtyInput" min="1" value="1">
-                    </div>
-                    <div class="deal-add-field">
-                        <label>Price</label>
-                        <input type="number" id="dealPriceInput" min="0" step="1" placeholder="$">
-                    </div>
-                    <button class="deal-add-btn" onclick="addDealSearchItem()">+</button>
-                </div>
-                <div class="deal-add-stock" id="dealAddStock"></div>
-            </div>
-        </div>
-
         <div class="deal-items-header" id="dealItemsHeader">Items (0)</div>
         <div class="deal-items-list" id="dealItemsList">
             <div class="deal-empty" id="dealEmpty">
@@ -2503,6 +2475,9 @@
                 if (btn) { btn.className = 'add-deal-btn'; btn.textContent = '+'; btn.title = 'Add to deal'; }
             }
         });
+        document.getElementById('dealName').value = '';
+        document.getElementById('dealBuyer').value = '';
+        sessionStorage.removeItem('pricing_deal_state');
         showToast('Deal cleared', 'success');
     }
 
