@@ -846,8 +846,11 @@
         .deal-add-field label { font-size: 10px; color: var(--text-muted); font-weight: 600; }
         .deal-add-field select, .deal-add-field input { padding: 6px 8px; border: 1px solid var(--border-default); border-radius: 5px; font-size: 12px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; }
         .deal-add-field select:focus, .deal-add-field input:focus { outline: none; border-color: var(--accent); }
-        .deal-add-btn { padding: 6px 12px; background: var(--accent); color: #fff; border: none; border-radius: 5px; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; min-width: 32px; }
+        .deal-add-btn { padding: 6px 12px; background: var(--accent); color: #fff; border: none; border-radius: 5px; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; min-width: 32px; transition: all 0.15s; }
         .deal-add-btn:hover { filter: brightness(1.1); }
+        .deal-add-btn:disabled { opacity: 0.3; cursor: not-allowed; filter: none; }
+        .deal-add-preview { font-size: 11px; color: var(--text-secondary); margin-top: 6px; font-family: var(--font-mono); font-weight: 600; }
+        .deal-add-preview .preview-total { color: var(--positive); }
 
         .deal-items-header {
             padding: 10px var(--space-5);
@@ -1309,12 +1312,6 @@
                     </svg>
                     Pricing
                 </a>
-                <a href="deal-maker.html" class="nav-link">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
-                    </svg>
-                    Deal Maker
-                </a>
                 <a href="ai-chat.html" class="nav-link">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
@@ -1573,14 +1570,15 @@
                 <div class="deal-add-fields" style="margin-top:8px;">
                     <div class="deal-add-field">
                         <label>Qty</label>
-                        <input type="number" id="dealQtyInput" min="1" value="1">
+                        <input type="number" id="dealQtyInput" min="1" value="1" oninput="updateDealPreview()">
                     </div>
                     <div class="deal-add-field">
                         <label>Price</label>
-                        <input type="number" id="dealPriceInput" min="0" step="1" placeholder="$">
+                        <input type="number" id="dealPriceInput" min="0" step="1" placeholder="$" oninput="updateDealPreview()">
                     </div>
-                    <button class="deal-add-btn" onclick="addDealSearchItem()">+</button>
+                    <button class="deal-add-btn" id="dealAddBtn" onclick="addDealSearchItem()" disabled>+</button>
                 </div>
+                <div class="deal-add-preview" id="dealAddPreview"></div>
                 <!-- Hidden selects for compatibility -->
                 <select id="dealGradeSelect" style="display:none;"></select>
                 <select id="dealColorSelect" style="display:none;"></select>
@@ -2572,8 +2570,10 @@
         document.getElementById('dealPriceInput').value = dealSearchSelected.price > 0 ? dealSearchSelected.price : '';
         document.getElementById('dealQtyInput').value = '1';
 
-        // Render grade chips
+        // Render grade chips — disable add until grade picked
         dealSelectedGrade = '';
+        document.getElementById('dealAddBtn').disabled = true;
+        document.getElementById('dealAddPreview').textContent = '';
         const gradeChips = document.getElementById('dealGradeChips');
         gradeChips.innerHTML = ['A', 'B', 'C', 'C (AMZ)'].map(g => {
             const count = gr[g] || 0;
@@ -2616,6 +2616,8 @@
         el.classList.add('selected');
         dealSelectedGrade = grade;
         document.getElementById('dealGradeSelect').value = grade;
+        document.getElementById('dealAddBtn').disabled = false;
+        updateDealPreview();
     }
 
     function pickDealColor(el, color) {
@@ -2623,6 +2625,15 @@
         el.classList.add('selected');
         dealSelectedColor = color;
         document.getElementById('dealColorSelect').value = color;
+    }
+
+    function updateDealPreview() {
+        const el = document.getElementById('dealAddPreview');
+        if (!dealSearchSelected || !dealSelectedGrade) { el.textContent = ''; return; }
+        const qty = parseInt(document.getElementById('dealQtyInput').value) || 0;
+        const price = parseFloat(document.getElementById('dealPriceInput').value) || 0;
+        const total = qty * price;
+        el.innerHTML = total > 0 ? `${qty} × $${price} = <span class="preview-total">$${total.toLocaleString()}</span>` : '';
     }
 
     function addDealSearchItem() {
@@ -2656,13 +2667,21 @@
             if (!dealPanelOpen) openDealPanel();
         }
 
-        // Reset
+        // Reset and refocus for rapid multi-add
         dealSearchSelected = null;
+        dealSelectedGrade = '';
+        dealSelectedColor = '';
         document.getElementById('dealAddRow').style.display = 'none';
+        document.getElementById('dealAddPreview').textContent = '';
+        document.getElementById('dealAddBtn').disabled = true;
         renderDealItems();
         updateDealBadge();
         saveDealState();
         showToast('Added to deal', 'success');
+        // Refocus search for next item
+        const searchInput = document.getElementById('dealModelSearch');
+        searchInput.value = '';
+        searchInput.focus();
     }
 
     // Close deal search dropdown on outside click
