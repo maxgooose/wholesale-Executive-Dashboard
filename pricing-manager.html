@@ -1825,9 +1825,10 @@
        ══════════════════════════════════════════════════════════ */
     const PROXY_URL = 'http://localhost:5001';
 
-    async function fetchByLocation(location, onProgress, startPage, totalEstimate) {
+    async function fetchByLocation(location, onProgress, startPage, totalEstimate, status) {
         const allItems = [];
-        const firstUrl = `${PROXY_URL}/api/inventory?status=Available&location=${encodeURIComponent(location)}&page=1`;
+        const st = status || 'Available';
+        const firstUrl = `${PROXY_URL}/api/inventory?status=${encodeURIComponent(st)}&location=${encodeURIComponent(location)}&page=1`;
         const resp = await fetch(firstUrl);
         const first = await resp.json();
         if (!first.data) return allItems;
@@ -1835,7 +1836,7 @@
         allItems.push(...first.data);
         if (onProgress) onProgress(startPage + 1, totalEstimate || totalPages);
         for (let p = 2; p <= totalPages; p++) {
-            const url = `${PROXY_URL}/api/inventory?status=Available&location=${encodeURIComponent(location)}&page=${p}`;
+            const url = `${PROXY_URL}/api/inventory?status=${encodeURIComponent(st)}&location=${encodeURIComponent(location)}&page=${p}`;
             try { const r = await fetch(url); const d = await r.json(); if (d.data) allItems.push(...d.data); }
             catch (e) { console.warn(`Page ${p} failed for ${location}:`, e.message); }
             if (onProgress) onProgress(startPage + p, totalEstimate);
@@ -1845,17 +1846,35 @@
     }
 
     async function fetchPricingInventory(onProgress) {
-        const [readyPeek, procPeek] = await Promise.all([
-            fetch(`${PROXY_URL}/api/inventory?status=Available&location=Ready+Room&page=1`).then(r => r.json()),
-            fetch(`${PROXY_URL}/api/inventory?status=Available&location=Processing&page=1`).then(r => r.json())
-        ]);
-        const readyPages = readyPeek.pages || 0;
-        const procPages = procPeek.pages || 0;
-        const totalPages = readyPages + procPages;
+        // Fetch all locations for Available status + Inbound status
+        const fetchTargets = [
+            { status: 'Available', location: 'Ready Room' },
+            { status: 'Available', location: 'Processing' },
+            { status: 'Available', location: 'Receiving' },
+            { status: 'Available', location: 'Damaged' },
+            { status: 'Available', location: 'Locked' },
+            { status: 'Inbound', location: 'Inbound' },
+        ];
+        // Peek all to get total pages
+        const peeks = await Promise.all(fetchTargets.map(t =>
+            fetch(`${PROXY_URL}/api/inventory?status=${encodeURIComponent(t.status)}&location=${encodeURIComponent(t.location)}&page=1`)
+                .then(r => r.json()).catch(() => ({ pages: 0, data: [] }))
+        ));
+        const pageCounts = peeks.map(p => p.pages || 0);
+        const totalPages = pageCounts.reduce((a, b) => a + b, 0);
         if (onProgress) onProgress(0, totalPages);
-        const readyItems = await fetchByLocation('Ready Room', onProgress, 0, totalPages);
-        const procItems = await fetchByLocation('Processing', onProgress, readyPages, totalPages);
-        return [...readyItems, ...procItems];
+
+        let allItems = [];
+        let pageOffset = 0;
+        for (let i = 0; i < fetchTargets.length; i++) {
+            if (pageCounts[i] > 0) {
+                const items = await fetchByLocation(fetchTargets[i].location, onProgress, pageOffset, totalPages,
+                    fetchTargets[i].status);
+                allItems.push(...items);
+            }
+            pageOffset += pageCounts[i];
+        }
+        return allItems;
     }
 
     const PRICING_CACHE_KEY = 'pricing_manager_cache';
@@ -1964,7 +1983,7 @@
     /* ══════════════════════════════════════════════════════════
        GROUPING
        ══════════════════════════════════════════════════════════ */
-    const ALLOWED_LOCATIONS = ['Ready Room', 'Processing'];
+    const ALLOWED_LOCATIONS = ['Ready Room', 'Processing', 'Receiving', 'Damaged', 'Locked', 'Inbound'];
 
     function groupInventory(items) {
         const map = new Map();
@@ -1979,13 +1998,15 @@
             const key = `${model}|${storage}`;
             if (!map.has(key)) {
                 const bd = detectBrand(model);
+                const locs = {};
+                ALLOWED_LOCATIONS.forEach(l => locs[l] = 0);
                 map.set(key, {
                     key, model, storage,
                     grades: { A: 0, B: 0, 'C (AMZ)': 0, C: 0 },
                     colors: {},
                     price: 0, lastPriceUpdate: null, total: 0,
                     brand: bd.brand, brandType: bd.type,
-                    locations: { 'Ready Room': 0, 'Processing': 0 }
+                    locations: locs
                 });
             }
             const g = map.get(key);
@@ -2057,7 +2078,8 @@
     function buildFilterChips() {
         allBrands = {};
         allStorages = {};
-        let allLocations = { 'Ready Room': 0, 'Processing': 0 };
+        let allLocations = {};
+        ALLOWED_LOCATIONS.forEach(l => allLocations[l] = 0);
         inventoryGroups.forEach(g => {
             allBrands[g.brand] = (allBrands[g.brand] || 0) + 1;
             allStorages[g.storage] = (allStorages[g.storage] || 0) + 1;
