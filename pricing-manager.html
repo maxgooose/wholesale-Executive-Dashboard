@@ -1348,6 +1348,7 @@
             <!-- Past Deals -->
             <button class="icon-btn" id="pastDealsToggleBtn" onclick="openPastDealsModal()" title="Past Deals">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span class="badge" id="pastDealsCount"></span>
             </button>
 
             <!-- Deal Builder -->
@@ -1546,7 +1547,7 @@
         <div class="deal-add-section">
             <div class="deal-add-label">Add Item</div>
             <div class="deal-search-wrap">
-                <input type="text" id="dealModelSearch" placeholder="Search model..." autocomplete="off" oninput="dealSearchInput()" onfocus="dealSearchInput()">
+                <input type="text" id="dealModelSearch" placeholder="Search model..." autocomplete="off" oninput="onDealSearch()" onfocus="onDealSearch()">
                 <div class="deal-search-dropdown" id="dealSearchDropdown"></div>
             </div>
             <div class="deal-add-row" id="dealAddRow" style="display:none;">
@@ -1604,9 +1605,13 @@
         </div>
         <div class="deal-actions" id="dealActions" style="display:none;">
             <button class="btn btn-secondary" onclick="clearDeal()">Clear</button>
+            <button class="btn btn-secondary" onclick="saveDealOnly()" title="Save deal to history">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Save
+            </button>
             <button class="btn btn-primary" onclick="exportDeal()">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Export Offer
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export Excel
             </button>
         </div>
     </div>
@@ -2663,54 +2668,63 @@
         const buyer = document.getElementById('dealBuyer').value.trim();
         const now = new Date();
         const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-        const csv = [];
 
-        csv.push(csvLine(['UNICEL STOCK BREAKDOWN — Deal Offer']));
-        csv.push(csvLine(['Deal', dealName]));
-        csv.push(csvLine(['Date', dateStr]));
-        if (buyer) csv.push(csvLine(['Buyer', buyer]));
-        csv.push('');
-        csv.push(csvLine(['MODEL', 'STORAGE', 'GRADE', 'QTY', 'PRICE', 'SUBTOTAL']));
+        // Build worksheet data
+        const wsData = [];
+        wsData.push(['UNIVERSAL CELLULAR — Deal Sheet']);
+        wsData.push(['Deal', dealName]);
+        wsData.push(['Date', dateStr]);
+        if (buyer) wsData.push(['Buyer', buyer]);
+        wsData.push([]);
+        wsData.push(['#', 'MODEL', 'STORAGE', 'GRADE', 'COLOR', 'QTY', 'PRICE', 'SUBTOTAL']);
 
-        let totalUnits = 0, totalValue = 0;
+        let totalUnits = 0, totalValue = 0, idx = 0;
         dealItems.forEach(item => {
-            const subtotal = item.offerQty * item.offerPrice;
+            idx++;
+            const sub = item.offerQty * item.offerPrice;
             totalUnits += item.offerQty;
-            totalValue += subtotal;
-            csv.push(csvLine([
-                item.model, item.storage,
-                item.grade || 'All',
-                item.offerQty,
-                item.offerPrice > 0 ? item.offerPrice : '',
-                subtotal > 0 ? subtotal : ''
-            ]));
+            totalValue += sub;
+            wsData.push([idx, item.model, item.storage, item.grade || 'All', item.color || '', item.offerQty, item.offerPrice > 0 ? item.offerPrice : '', sub > 0 ? sub : '']);
         });
-        csv.push('');
-        csv.push(csvLine(['', '', '', totalUnits, 'TOTAL', totalValue]));
 
-        const blob = new Blob(['\uFEFF' + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
+        wsData.push([]);
+        wsData.push(['', '', '', '', 'TOTAL', totalUnits, '', totalValue]);
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        ws['!cols'] = [
+            { wch: 4 }, { wch: 32 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 12 }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Deal');
+
         const safeName = dealName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
-        a.download = `Deal_${safeName}_${buyer ? buyer.replace(/\s+/g, '_') + '_' : ''}${now.toISOString().split('T')[0]}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-        showToast(`Exported deal with ${dealItems.size} models`, 'success');
+        const fileName = `Deal_${safeName}${buyer ? '_' + buyer.replace(/\s+/g, '_') : ''}_${now.toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+        showToast(`Exported ${dealItems.size} items as Excel`, 'success');
 
         // Save to server
         saveDealToServer(dealName, buyer, totalUnits, totalValue);
     }
 
+    function saveDealOnly() {
+        if (dealItems.size === 0) { showToast('No items in deal', 'error'); return; }
+        const dealName = document.getElementById('dealName').value.trim() || 'Untitled Deal';
+        const buyer = document.getElementById('dealBuyer').value.trim();
+        let totalUnits = 0, totalValue = 0;
+        dealItems.forEach(item => { totalUnits += item.offerQty; totalValue += item.offerQty * item.offerPrice; });
+        saveDealToServer(dealName, buyer, totalUnits, totalValue);
+    }
+
     function saveDealToServer(dealName, buyer, totalUnits, totalValue) {
         const items = Array.from(dealItems.values()).map(item => ({
-            model: item.model,
-            storage: item.storage,
+            model: item.model || '',
+            storage: item.storage || '',
             grade: item.grade || 'All',
             color: item.color || '',
-            qty: item.offerQty,
-            price: item.offerPrice,
-            subtotal: item.offerQty * item.offerPrice
+            qty: item.offerQty || 0,
+            price: item.offerPrice || 0,
+            subtotal: (item.offerQty || 0) * (item.offerPrice || 0)
         }));
         fetch('/api/deals', {
             method: 'POST',
