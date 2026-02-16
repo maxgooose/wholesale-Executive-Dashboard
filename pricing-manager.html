@@ -2007,6 +2007,7 @@
                     key, model, storage,
                     grades: { A: 0, B: 0, 'C (AMZ)': 0, C: 0 },
                     colors: {},
+                    colorsByGrade: { A: {}, B: {}, 'C (AMZ)': {}, C: {} },
                     price: 0, lastPriceUpdate: null, total: 0,
                     brand: bd.brand, brandType: bd.type,
                     locations: locs,
@@ -2016,7 +2017,12 @@
             const g = map.get(key);
             if (g.grades.hasOwnProperty(grade)) g.grades[grade]++;
             else g.grades['C']++;
-            if (color) g.colors[color] = (g.colors[color] || 0) + 1;
+            if (color) {
+                g.colors[color] = (g.colors[color] || 0) + 1;
+                const gradeKey = g.grades.hasOwnProperty(grade) ? grade : 'C';
+                if (!g.colorsByGrade[gradeKey]) g.colorsByGrade[gradeKey] = {};
+                g.colorsByGrade[gradeKey][color] = (g.colorsByGrade[gradeKey][color] || 0) + 1;
+            }
             const itemCost = item.cost || (item.total_price_paid ? item.total_price_paid / 100 : 0);
             if (itemCost > 0) { g.totalCost += itemCost; g.costCount++; }
             g.total++;
@@ -2664,27 +2670,16 @@
             if (el) pickDealGrade(el, firstGrade);
         }
 
-        // Render color chips
+        // Render color chips (initially all colors, will filter when grade is picked)
         dealSelectedColor = '';
-        const colorChips = document.getElementById('dealColorChips');
-        const colors = dealSearchSelected.colors || {};
-        const colorKeys = Object.keys(colors).sort();
-        if (colorKeys.length === 0) {
-            colorChips.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">No color data</span>';
-        } else {
-            colorChips.innerHTML = `<div class="deal-chip selected" data-color="" onclick="pickDealColor(this,'')">Any<span class="dc-count">(${dealSearchSelected.total})</span></div>` +
-                colorKeys.map(c => `<div class="deal-chip" data-color="${escHtml(c)}" onclick="pickDealColor(this,'${escJs(c)}')">${escHtml(c)}<span class="dc-count">(${colors[c]})</span></div>`).join('');
-        }
+        renderDealColorChips(dealSearchSelected, dealSelectedGrade);
 
-        // Sync hidden selects
+        // Sync hidden grade select
         const gradeSelect = document.getElementById('dealGradeSelect');
         gradeSelect.innerHTML = '';
         ['A', 'B', 'C', 'C (AMZ)'].forEach(g => {
             if (gr[g] > 0) { const opt = document.createElement('option'); opt.value = g; opt.textContent = g; gradeSelect.appendChild(opt); }
         });
-        const colorSelect = document.getElementById('dealColorSelect');
-        colorSelect.innerHTML = '<option value="">Any</option>';
-        colorKeys.forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.textContent = c; colorSelect.appendChild(opt); });
     }
 
     function pickDealGrade(el, grade) {
@@ -2694,6 +2689,35 @@
         document.getElementById('dealGradeSelect').value = grade;
         document.getElementById('dealAddBtn').disabled = false;
         updateDealPreview();
+        // Re-render color chips filtered by this grade
+        if (dealSearchSelected) {
+            renderDealColorChips(dealSearchSelected, grade);
+        }
+    }
+
+    function renderDealColorChips(group, grade) {
+        dealSelectedColor = '';
+        const colorChips = document.getElementById('dealColorChips');
+        // Use grade-filtered colors if a grade is selected, otherwise all colors
+        const colors = (grade && group.colorsByGrade && group.colorsByGrade[grade])
+            ? group.colorsByGrade[grade]
+            : (group.colors || {});
+        const gradeTotal = grade ? (group.grades[grade] || 0) : group.total;
+        const colorKeys = Object.keys(colors).sort();
+        if (colorKeys.length === 0) {
+            colorChips.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">No color data</span>';
+        } else {
+            colorChips.innerHTML = `<div class="deal-chip selected" data-color="" onclick="pickDealColor(this,'')">Any<span class="dc-count">(${gradeTotal})</span></div>` +
+                colorKeys.map(c => `<div class="deal-chip" data-color="${escHtml(c)}" onclick="pickDealColor(this,'${escJs(c)}')">${escHtml(c)}<span class="dc-count">(${colors[c]})</span></div>`).join('');
+        }
+        // Update hidden select
+        const colorSelect = document.getElementById('dealColorSelect');
+        colorSelect.innerHTML = '<option value="">Any</option>';
+        colorKeys.forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.textContent = c; colorSelect.appendChild(opt); });
+        // Update stock hint
+        document.getElementById('dealAddStock').textContent = grade
+            ? `Stock for Grade ${grade}: ${gradeTotal} units`
+            : `Stock: A:${group.grades.A}  B:${group.grades.B}  C:${group.grades.C}  AMZ:${group.grades['C (AMZ)']}`;
     }
 
     function pickDealColor(el, color) {
