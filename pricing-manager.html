@@ -867,6 +867,32 @@
             outline: none;
         }
         .deal-field input:focus { border-color: var(--accent); }
+
+        /* Deal Maker Search Section */
+        .deal-add-section { padding: 0 var(--space-5) var(--space-3); border-bottom: 1px solid var(--border-subtle); }
+        .deal-add-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 6px; }
+        .deal-search-wrap { position: relative; margin-bottom: 8px; }
+        .deal-search-wrap input { width: 100%; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: 6px; font-size: 13px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; }
+        .deal-search-wrap input:focus { outline: none; border-color: var(--accent); }
+        .deal-search-dropdown { position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border-default); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); z-index: 60; display: none; margin-top: 2px; }
+        .deal-search-dropdown.visible { display: block; }
+        .deal-search-opt { padding: 8px 10px; cursor: pointer; font-size: 13px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); }
+        .deal-search-opt:last-child { border-bottom: none; }
+        .deal-search-opt:hover { background: var(--bg-secondary); }
+        .deal-search-opt .ds-name { font-weight: 500; }
+        .deal-search-opt .ds-meta { font-size: 11px; color: var(--text-secondary); }
+        .deal-search-opt .ds-stock { font-size: 11px; color: var(--text-secondary); font-weight: 600; }
+        .deal-add-row { margin-bottom: 8px; }
+        .deal-add-selected { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
+        .deal-add-fields { display: flex; gap: 6px; align-items: end; }
+        .deal-add-field { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+        .deal-add-field label { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+        .deal-add-field select, .deal-add-field input { padding: 6px 8px; border: 1px solid var(--border-default); border-radius: 5px; font-size: 12px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; }
+        .deal-add-field select:focus, .deal-add-field input:focus { outline: none; border-color: var(--accent); }
+        .deal-add-btn { padding: 6px 12px; background: var(--accent); color: #fff; border: none; border-radius: 5px; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; min-width: 32px; }
+        .deal-add-btn:hover { filter: brightness(1.1); }
+        .deal-add-stock { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
         .deal-items-header {
             padding: 10px var(--space-5);
             font-size: 10px;
@@ -1227,10 +1253,6 @@
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     Pricing
                 </a>
-                <a href="deal-maker.html" class="gnav-link">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/></svg>
-                    Deal Maker
-                </a>
                 <a href="ai-chat.html" class="gnav-link">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
                     Assistant
@@ -1468,11 +1490,40 @@
                 <input type="text" id="dealBuyer" placeholder="e.g. ABC Wireless" oninput="saveDealState()">
             </div>
         </div>
+
+        <!-- Deal Maker: Search + Add -->
+        <div class="deal-add-section">
+            <div class="deal-add-label">Add Item</div>
+            <div class="deal-search-wrap">
+                <input type="text" id="dealModelSearch" placeholder="Search model..." autocomplete="off" oninput="onDealSearch()" onfocus="onDealSearch()">
+                <div class="deal-search-dropdown" id="dealSearchDropdown"></div>
+            </div>
+            <div class="deal-add-row" id="dealAddRow" style="display:none;">
+                <div class="deal-add-selected" id="dealAddSelected"></div>
+                <div class="deal-add-fields">
+                    <div class="deal-add-field">
+                        <label>Grade</label>
+                        <select id="dealGradeSelect"><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="C (AMZ)">AMZ</option></select>
+                    </div>
+                    <div class="deal-add-field">
+                        <label>Qty</label>
+                        <input type="number" id="dealQtyInput" min="1" value="1">
+                    </div>
+                    <div class="deal-add-field">
+                        <label>Price</label>
+                        <input type="number" id="dealPriceInput" min="0" step="1" placeholder="$">
+                    </div>
+                    <button class="deal-add-btn" onclick="addDealSearchItem()">+</button>
+                </div>
+                <div class="deal-add-stock" id="dealAddStock"></div>
+            </div>
+        </div>
+
         <div class="deal-items-header" id="dealItemsHeader">Items (0)</div>
         <div class="deal-items-list" id="dealItemsList">
             <div class="deal-empty" id="dealEmpty">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                <p>Click <strong>+</strong> on any row to add items to your deal.</p>
+                <p>Search a model above or click <strong>+</strong> on any table row.</p>
             </div>
         </div>
         <div class="deal-summary" id="dealSummary" style="display:none;">
@@ -2275,14 +2326,15 @@
             const subtotal = item.offerQty * item.offerPrice;
             totalUnits += item.offerQty;
             totalValue += subtotal;
+            const gradeLabel = item.grade ? ` [${item.grade}]` : '';
             return `
             <div class="deal-item" data-deal-key="${escHtml(item.key)}">
                 <div class="deal-item-top">
-                    <div class="deal-item-name" title="${escHtml(item.model)}">${escHtml(item.model)}</div>
+                    <div class="deal-item-name" title="${escHtml(item.model)}">${escHtml(item.model)}${gradeLabel}</div>
                     <button class="deal-item-remove" onclick="toggleDealItem('${escJs(item.key)}')">&times;</button>
                 </div>
                 <div class="deal-item-details">
-                    <span class="avail">${escHtml(item.storage)} &middot; Avail: ${item.maxQty}</span>
+                    <span class="avail">${escHtml(item.storage)}${item.grade ? ' · Grade ' + escHtml(item.grade) : ''} &middot; Avail: ${item.maxQty}</span>
                     <span>Qty:</span>
                     <input type="number" min="1" max="${item.maxQty}" value="${item.offerQty}"
                         onchange="updateDealQty('${escJs(item.key)}', this.value)"
@@ -2346,6 +2398,89 @@
     }
 
     /* ══════════════════════════════════════════════════════════
+       DEAL MAKER — SEARCH + ADD
+       ══════════════════════════════════════════════════════════ */
+    let dealSearchSelected = null;
+
+    function onDealSearch() {
+        const q = document.getElementById('dealModelSearch').value.trim().toLowerCase();
+        const dd = document.getElementById('dealSearchDropdown');
+        let results = inventoryGroups;
+        if (q.length > 0) {
+            results = inventoryGroups.filter(g => g.model.toLowerCase().includes(q) || g.storage.toLowerCase().includes(q));
+        }
+        results = results.slice(0, 30);
+        if (results.length === 0) {
+            dd.innerHTML = '<div style="padding:10px;color:var(--text-secondary);font-size:12px;">No results</div>';
+        } else {
+            dd.innerHTML = results.map(g => `
+                <div class="deal-search-opt" onclick="selectDealModel('${escJs(g.key)}')">
+                    <div><div class="ds-name">${escHtml(g.model)}</div><div class="ds-meta">${escHtml(g.storage)} · A:${g.grades.A} B:${g.grades.B} C:${g.grades.C} AMZ:${g.grades['C (AMZ)']}</div></div>
+                    <div class="ds-stock">${g.total}</div>
+                </div>`).join('');
+        }
+        dd.classList.add('visible');
+    }
+
+    function selectDealModel(key) {
+        dealSearchSelected = inventoryGroups.find(g => g.key === key);
+        if (!dealSearchSelected) return;
+        document.getElementById('dealSearchDropdown').classList.remove('visible');
+        document.getElementById('dealModelSearch').value = '';
+        document.getElementById('dealAddSelected').textContent = `${dealSearchSelected.model} — ${dealSearchSelected.storage}`;
+        const gr = dealSearchSelected.grades;
+        document.getElementById('dealAddStock').textContent = `Stock: A:${gr.A}  B:${gr.B}  C:${gr.C}  AMZ:${gr['C (AMZ)']}`;
+        document.getElementById('dealAddRow').style.display = 'block';
+        document.getElementById('dealPriceInput').value = dealSearchSelected.price > 0 ? dealSearchSelected.price : '';
+        document.getElementById('dealQtyInput').value = '1';
+    }
+
+    function addDealSearchItem() {
+        if (!dealSearchSelected) return;
+        const grade = document.getElementById('dealGradeSelect').value;
+        const qty = parseInt(document.getElementById('dealQtyInput').value) || 1;
+        const price = parseFloat(document.getElementById('dealPriceInput').value) || dealSearchSelected.price || 0;
+        const key = dealSearchSelected.key;
+
+        // Add to dealItems map with grade suffix to allow same model different grades
+        const dealKey = `${key}|${grade}`;
+        if (dealItems.has(dealKey)) {
+            // Update existing
+            const existing = dealItems.get(dealKey);
+            existing.offerQty += qty;
+            existing.offerPrice = price;
+        } else {
+            dealItems.set(dealKey, {
+                key: dealKey,
+                model: dealSearchSelected.model,
+                storage: dealSearchSelected.storage,
+                brand: dealSearchSelected.brand,
+                grade: grade,
+                maxQty: dealSearchSelected.grades[grade] || dealSearchSelected.total,
+                offerQty: Math.max(1, qty),
+                offerPrice: price,
+                grades: { ...dealSearchSelected.grades }
+            });
+            if (!dealPanelOpen) openDealPanel();
+        }
+
+        // Reset
+        dealSearchSelected = null;
+        document.getElementById('dealAddRow').style.display = 'none';
+        renderDealItems();
+        updateDealBadge();
+        saveDealState();
+        showToast('Added to deal', 'success');
+    }
+
+    // Close deal search dropdown on outside click
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.deal-search-wrap')) {
+            document.getElementById('dealSearchDropdown').classList.remove('visible');
+        }
+    });
+
+    /* ══════════════════════════════════════════════════════════
        DEAL PERSISTENCE (sessionStorage)
        ══════════════════════════════════════════════════════════ */
     function saveDealState() {
@@ -2391,7 +2526,7 @@
         csv.push(csvLine(['Date', dateStr]));
         if (buyer) csv.push(csvLine(['Buyer', buyer]));
         csv.push('');
-        csv.push(csvLine(['MODEL', 'STORAGE', 'AVAILABLE', 'OFFER QTY', 'PRICE', 'SUBTOTAL']));
+        csv.push(csvLine(['MODEL', 'STORAGE', 'GRADE', 'AVAILABLE', 'OFFER QTY', 'PRICE', 'SUBTOTAL']));
 
         let totalUnits = 0, totalValue = 0;
         dealItems.forEach(item => {
@@ -2400,6 +2535,7 @@
             totalValue += subtotal;
             csv.push(csvLine([
                 item.model, item.storage,
+                item.grade || 'All',
                 item.maxQty,
                 item.offerQty,
                 item.offerPrice > 0 ? item.offerPrice : '',
@@ -2407,7 +2543,7 @@
             ]));
         });
         csv.push('');
-        csv.push(csvLine(['', '', '', totalUnits, 'TOTAL', totalValue]));
+        csv.push(csvLine(['', '', '', '', totalUnits, 'TOTAL', totalValue]));
 
         const blob = new Blob(['\uFEFF' + csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
