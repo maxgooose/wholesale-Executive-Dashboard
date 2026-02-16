@@ -19,9 +19,6 @@ let isGroupedView = true;
 let expandedGroups = new Set();
 let expandedSubGroups = new Set();
 
-// Location filter state
-let selectedLocation = 'all';
-
 // Expose globally for inventory updater and HTML access
 window.inventoryData = inventoryData;
 window.categorizeItemsByRoom = categorizeItemsByRoom;
@@ -34,7 +31,6 @@ window.updateBatchInfoBanner = updateBatchInfoBanner;
 window.toggleExpandAll = toggleExpandAll;
 window.toggleDeviceGroup = toggleDeviceGroup;
 window.toggleSubGroup = toggleSubGroup;
-window.onLocationFilterChange = onLocationFilterChange;
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
@@ -59,36 +55,15 @@ document.addEventListener('inventoryUpdate', function(event) {
 
 // Load inventory data
 async function loadInventoryData() {
-    // PRIORITY 1: Load from local available-inventory.json snapshot (fastest, 15K+ items)
+    // PRIORITY 1: Load from Vercel Blob cache via API route (instant, always fresh)
     try {
-        const loaded = await loadFromLocalSnapshot();
-        if (loaded) {
-            console.log('✅ Loaded from local data snapshot (data/available-inventory.json)');
-            return;
-        }
-    } catch (snapshotError) {
-        console.warn('Could not load from local snapshot:', snapshotError);
+        const loaded = await loadFromCachedAPI();
+        if (loaded) return;
+    } catch (apiError) {
+        console.warn('Could not load from /api/inventory:', apiError.message);
     }
 
-    // PRIORITY 2: Load from backup JSON file in assets
-    try {
-        const loaded = await loadFromBackupFile();
-        if (loaded) {
-            console.log('✅ Loaded from backup JSON file (assets/wholecell-data-backup-2025-11-24.json)');
-            return;
-        }
-    } catch (backupError) {
-        console.warn('Could not load from backup file:', backupError);
-    }
-
-    // PRIORITY 3: Check for preloaded data as fallback
-    if (Array.isArray(window.__PRELOADED_INVENTORY__) && window.__PRELOADED_INVENTORY__.length > 0) {
-        console.log('Using preloaded inventory data as fallback');
-        hydrateInventoryData(window.__PRELOADED_INVENTORY__);
-        return;
-    }
-
-    // PRIORITY 4: Load from Wholecell API (requires server)
+    // PRIORITY 2: Load from Wholecell API directly via proxy (slow fallback for local dev)
     try {
         await loadFromWholecell();
     } catch (wholecellError) {
@@ -97,29 +72,26 @@ async function loadInventoryData() {
     }
 }
 
-// Load from local data snapshot (data/available-inventory.json)
-async function loadFromLocalSnapshot() {
-    console.log('📂 Attempting to load from local data snapshot...');
+// Load from Vercel Blob cache via the API route
+async function loadFromCachedAPI() {
+    console.log('Fetching from /api/inventory...');
 
-    const response = await fetch('data/available-inventory.json');
+    const response = await fetch('/api/inventory');
     if (!response.ok) {
-        throw new Error(`Failed to fetch local snapshot: ${response.status}`);
+        throw new Error(`API returned ${response.status}`);
     }
 
     const rawData = await response.json();
 
-    if (!rawData.data || !Array.isArray(rawData.data) || rawData.data.length === 0) {
-        throw new Error('Local snapshot does not contain valid data array');
+    if (!rawData.items || !Array.isArray(rawData.items)) {
+        throw new Error('API response does not contain valid items array');
     }
 
-    console.log(`📦 Loaded ${rawData.data.length} items from local snapshot (filter: ${rawData.status_filter || 'all'})`);
+    console.log(`Loaded ${rawData.items.length} items from cached API`);
 
     // Transform using WholecellTransformer
-    const transformedData = WholecellTransformer.transformAll(rawData.data);
-
-    // Get transform stats
-    const stats = WholecellTransformer.getTransformStats(rawData.data, transformedData);
-    console.log('Transform stats:', stats);
+    const transformedData = WholecellTransformer.transformAll(rawData.items);
+    const stats = WholecellTransformer.getTransformStats(rawData.items, transformedData);
 
     // Hydrate inventory
     hydrateInventoryData(transformedData);
@@ -127,66 +99,18 @@ async function loadFromLocalSnapshot() {
     // Update sync status
     const syncStatus = document.getElementById('wholecellSyncStatus');
     if (syncStatus) {
-        syncStatus.innerHTML = `
-            <span class="status-dot online"></span>
-            <span>Snapshot: ${rawData.count || rawData.data.length} items</span>
-        `;
-    }
-
-    // Save batch info
-    saveBatchInfo('local_snapshot_load');
-
-    // Show notification
-    showNotification(`📂 Loaded ${stats.valid} items from local snapshot`);
-
-    return true;
-}
-
-// TEMPORARY: Load from backup JSON file (assets/wholecell-data-backup-2025-11-24.json)
-async function loadFromBackupFile() {
-    console.log('📂 Attempting to load from backup JSON file...');
-    
-    const response = await fetch('assets/wholecell-data-backup-2025-11-24.json');
-    if (!response.ok) {
-        throw new Error(`Failed to fetch backup file: ${response.status}`);
-    }
-    
-    const rawData = await response.json();
-    
-    if (!rawData.items || !Array.isArray(rawData.items)) {
-        throw new Error('Backup file does not contain valid items array');
-    }
-    
-    console.log(`📦 Loaded ${rawData.items.length} items from backup file`);
-    
-    // Transform using WholecellTransformer
-    const transformedData = WholecellTransformer.transformAll(rawData.items);
-    
-    // Get transform stats
-    const stats = WholecellTransformer.getTransformStats(rawData.items, transformedData);
-    console.log('Transform stats:', stats);
-    
-    // Hydrate inventory
-    hydrateInventoryData(transformedData);
-    
-    // Update sync status to show backup source
-    const syncStatus = document.getElementById('wholecellSyncStatus');
-    if (syncStatus) {
-        const date = rawData.metadata?.timestamp 
+        const date = rawData.metadata?.timestamp
             ? new Date(rawData.metadata.timestamp).toLocaleString()
             : 'Unknown';
         syncStatus.innerHTML = `
             <span class="status-dot online"></span>
-            <span>Backup: ${date}</span>
+            <span>Synced: ${date}</span>
         `;
     }
-    
-    // Save batch info
-    saveBatchInfo('backup_file_load');
-    
-    // Show notification
-    showNotification(`📂 Loaded ${stats.valid} items from backup (${rawData.metadata?.timestamp?.split('T')[0] || 'cached'})`);
-    
+
+    saveBatchInfo('cached_api');
+    showNotification(`Loaded ${stats.valid} items (synced ${rawData.metadata?.timestamp?.split('T')[0] || 'recently'})`);
+
     return true;
 }
 
@@ -274,12 +198,14 @@ async function loadFromWholecell() {
     // Show success notification
     showNotification(`⚡ Loaded ${stats.valid} items from Wholecell`);
 }
-// it would not show the loading message in the frontend
-// Update loading message
+// Update loading message in the sync status indicator
 function updateLoadingMessage(message) {
-    const messageEl = document.getElementById('offlineLoaderMessage');
-    if (messageEl) {
-        messageEl.textContent = message;
+    const syncStatus = document.getElementById('wholecellSyncStatus');
+    if (syncStatus) {
+        syncStatus.innerHTML = `
+            <span class="status-dot syncing"></span>
+            <span>${message}</span>
+        `;
     }
 }
 
@@ -314,20 +240,11 @@ function hydrateInventoryData(rawData) {
         renderRooms();
         console.warn('✅ renderRooms complete');
         
-        populateLocationFilter();
-        console.warn('✅ populateLocationFilter complete');
-
         updateDataTable();
         console.warn('✅ updateDataTable complete');
-
-        // Hide the offline loader - data is now loaded
-        console.warn('🔄 Hiding connection error loader...');
-        const loaderEl = document.getElementById('offlineLoaderWrapper');
-        console.warn('Loader element:', loaderEl);
-        console.warn('Loader classList before:', loaderEl?.classList?.toString());
+        
+        // Hide connection error banner - data is now loaded
         hideConnectionError();
-        console.warn('Loader classList after:', loaderEl?.classList?.toString());
-        console.warn('✅ Data hydration complete - loader hidden');
         
     } catch (error) {
         console.error('❌ Error in hydrateInventoryData:', error);
@@ -338,37 +255,23 @@ function hydrateInventoryData(rawData) {
 
 // Show connection error when Wholecell API fails
 function showConnectionError(error) {
-    const messageEl = document.getElementById('offlineLoaderMessage');
-    const container = document.getElementById('offlineLoaderWrapper');
+    const banner = document.getElementById('connectionBanner');
+    const messageEl = document.getElementById('connectionBannerMessage');
 
     if (messageEl) {
         const errorMessage = error?.message || 'Unknown error';
-        messageEl.innerHTML = `
-            <div class="text-center">
-                <h3 class="text-lg font-semibold text-red-600 mb-2">Unable to Connect to Wholecell API</h3>
-                <p class="text-gray-700 mb-3">${errorMessage}</p>
-                <p class="text-sm text-gray-600">Please ensure:</p>
-                <ul class="text-sm text-gray-600 text-left mt-2 space-y-1">
-                    <li>• The Wholecell proxy server is running</li>
-                    <li>• You have network connectivity</li>
-                    <li>• The API credentials are configured correctly</li>
-                </ul>
-                <button onclick="location.reload()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                    Retry Connection
-                </button>
-            </div>
-        `;
+        messageEl.textContent = errorMessage;
     }
 
-    if (container) {
-        container.classList.remove('hidden');
+    if (banner) {
+        banner.classList.remove('hidden');
     }
 }
 
 function hideConnectionError() {
-    const container = document.getElementById('offlineLoaderWrapper');
-    if (container) {
-        container.classList.add('hidden');
+    const banner = document.getElementById('connectionBanner');
+    if (banner) {
+        banner.classList.add('hidden');
     }
 }
 
@@ -961,78 +864,11 @@ function toggleSubGroup(deviceType, baseModel) {
     updateDataTable();
 }
 
-// Populate the location filter dropdown from current inventory data
-function populateLocationFilter() {
-    const select = document.getElementById('locationFilter');
-    if (!select) {
-        console.warn('⚠️ locationFilter select not found in DOM');
-        return;
-    }
-
-    const locationCounts = {};
-    inventoryData.forEach(item => {
-        const loc = item.location || 'No Location';
-        locationCounts[loc] = (locationCounts[loc] || 0) + 1;
-    });
-
-    // Sort by count descending
-    const sorted = Object.entries(locationCounts).sort((a, b) => b[1] - a[1]);
-
-    console.log('📍 Location filter data:', sorted);
-
-    // Preserve current selection
-    const current = select.value;
-    select.innerHTML = '';
-
-    // All locations option
-    const allOpt = document.createElement('option');
-    allOpt.value = 'all';
-    allOpt.textContent = `All Locations (${inventoryData.length})`;
-    select.appendChild(allOpt);
-
-    sorted.forEach(([loc, count]) => {
-        const opt = document.createElement('option');
-        opt.value = loc;
-        opt.textContent = `${loc} (${count})`;
-        select.appendChild(opt);
-    });
-
-    // Restore selection if it still exists
-    if (current && current !== 'all') {
-        const exists = sorted.some(([loc]) => loc === current);
-        select.value = exists ? current : 'all';
-    }
-
-    console.log(`✅ Location filter populated with ${sorted.length} locations`);
-}
-
-// Handle location filter change
-function onLocationFilterChange() {
-    const select = document.getElementById('locationFilter');
-    selectedLocation = select ? select.value : 'all';
-
-    // Update badge
-    const badge = document.getElementById('locationFilterBadge');
-    if (badge) {
-        const filtered = getFilteredInventory();
-        badge.textContent = selectedLocation === 'all' ? '' : `Showing ${filtered.length} items`;
-    }
-
-    updateDataTable();
-}
-
-// Get inventory filtered by selected location
-function getFilteredInventory() {
-    if (selectedLocation === 'all') return inventoryData;
-    return inventoryData.filter(item => (item.location || 'No Location') === selectedLocation);
-}
-
 // Generate inventory summary grouped by model and storage
 function generateInventorySummary() {
     const summaryMap = new Map();
-    const filtered = getFilteredInventory();
-
-    filtered.forEach(item => {
+    
+    inventoryData.forEach(item => {
         const model = item.MODEL || 'Unknown Model';
         const storage = item.STORAGE || 'Unknown';
         const grade = item.GRADE || 'Unknown';

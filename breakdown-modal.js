@@ -204,6 +204,22 @@ class BreakdownPricingModal {
                     transform: translateY(-1px);
                     box-shadow: 0 4px 12px -2px rgba(59, 130, 246, 0.4);
                 }
+                #pricingModal .price-suggestion {
+                    font-family: var(--font-mono, monospace);
+                    font-size: 12px;
+                    color: var(--text-muted, #9ca3af);
+                    margin-top: 4px;
+                    min-height: 18px;
+                }
+                #pricingModal .price-suggestion .suggestion-link {
+                    color: var(--accent, #3b82f6);
+                    cursor: pointer;
+                    text-decoration: none;
+                    font-weight: 500;
+                }
+                #pricingModal .price-suggestion .suggestion-link:hover {
+                    text-decoration: underline;
+                }
             `;
             document.head.appendChild(styles);
         }
@@ -230,54 +246,72 @@ class BreakdownPricingModal {
                         <div class="price-row" data-grade="gradeA">
                             <div class="grade-dot grade-a"></div>
                             <label class="grade-label">Grade A</label>
-                            <div class="price-input-wrapper">
-                                <span class="dollar-sign">$</span>
-                                <input type="number" id="priceGradeA" class="price-input" placeholder="0.00" step="0.01">
+                            <div style="flex:1">
+                                <div class="price-input-wrapper">
+                                    <span class="dollar-sign">$</span>
+                                    <input type="number" id="priceGradeA" class="price-input" placeholder="0.00" step="0.01">
+                                </div>
+                                <div class="price-suggestion" id="suggestionGradeA"></div>
                             </div>
                         </div>
 
                         <div class="price-row" data-grade="gradeB">
                             <div class="grade-dot grade-b"></div>
                             <label class="grade-label">Grade B</label>
-                            <div class="price-input-wrapper">
-                                <span class="dollar-sign">$</span>
-                                <input type="number" id="priceGradeB" class="price-input" placeholder="0.00" step="0.01">
+                            <div style="flex:1">
+                                <div class="price-input-wrapper">
+                                    <span class="dollar-sign">$</span>
+                                    <input type="number" id="priceGradeB" class="price-input" placeholder="0.00" step="0.01">
+                                </div>
+                                <div class="price-suggestion" id="suggestionGradeB"></div>
                             </div>
                         </div>
 
                         <div class="price-row" data-grade="gradeC">
                             <div class="grade-dot grade-c"></div>
                             <label class="grade-label">Grade C</label>
-                            <div class="price-input-wrapper">
-                                <span class="dollar-sign">$</span>
-                                <input type="number" id="priceGradeC" class="price-input" placeholder="0.00" step="0.01">
+                            <div style="flex:1">
+                                <div class="price-input-wrapper">
+                                    <span class="dollar-sign">$</span>
+                                    <input type="number" id="priceGradeC" class="price-input" placeholder="0.00" step="0.01">
+                                </div>
+                                <div class="price-suggestion" id="suggestionGradeC"></div>
                             </div>
                         </div>
 
                         <div class="price-row" data-grade="gradeCAMZ">
                             <div class="grade-dot grade-camz"></div>
                             <label class="grade-label">Grade C (AMZ)</label>
-                            <div class="price-input-wrapper">
-                                <span class="dollar-sign">$</span>
-                                <input type="number" id="priceGradeCAMZ" class="price-input" placeholder="0.00" step="0.01">
+                            <div style="flex:1">
+                                <div class="price-input-wrapper">
+                                    <span class="dollar-sign">$</span>
+                                    <input type="number" id="priceGradeCAMZ" class="price-input" placeholder="0.00" step="0.01">
+                                </div>
+                                <div class="price-suggestion" id="suggestionGradeCAMZ"></div>
                             </div>
                         </div>
 
                         <div class="price-row" data-grade="gradeD">
                             <div class="grade-dot grade-d"></div>
                             <label class="grade-label">Grade D</label>
-                            <div class="price-input-wrapper">
-                                <span class="dollar-sign">$</span>
-                                <input type="number" id="priceGradeD" class="price-input" placeholder="0.00" step="0.01">
+                            <div style="flex:1">
+                                <div class="price-input-wrapper">
+                                    <span class="dollar-sign">$</span>
+                                    <input type="number" id="priceGradeD" class="price-input" placeholder="0.00" step="0.01">
+                                </div>
+                                <div class="price-suggestion" id="suggestionGradeD"></div>
                             </div>
                         </div>
 
                         <div class="price-row" data-grade="defective">
                             <div class="grade-dot grade-def"></div>
                             <label class="grade-label">Defective</label>
-                            <div class="price-input-wrapper">
-                                <span class="dollar-sign">$</span>
-                                <input type="number" id="priceDefective" class="price-input" placeholder="0.00" step="0.01">
+                            <div style="flex:1">
+                                <div class="price-input-wrapper">
+                                    <span class="dollar-sign">$</span>
+                                    <input type="number" id="priceDefective" class="price-input" placeholder="0.00" step="0.01">
+                                </div>
+                                <div class="price-suggestion" id="suggestionDefective"></div>
                             </div>
                         </div>
                     </div>
@@ -342,7 +376,10 @@ class BreakdownPricingModal {
             
             // Load existing prices
             await this.loadExistingPrices(model, storage);
-            
+
+            // Load smart suggestions
+            await this.loadSuggestions(model, storage);
+
             // Show modal
             this.modalElement.classList.add('visible');
             
@@ -425,6 +462,49 @@ class BreakdownPricingModal {
         }
     }
 
+
+    /**
+     * Load smart suggestions for each grade
+     */
+    async loadSuggestions(model, storage) {
+        const gradeMap = {
+            'A': { inputId: 'priceGradeA', suggestionId: 'suggestionGradeA' },
+            'B': { inputId: 'priceGradeB', suggestionId: 'suggestionGradeB' },
+            'C': { inputId: 'priceGradeC', suggestionId: 'suggestionGradeC' },
+            'CAMZ': { inputId: 'priceGradeCAMZ', suggestionId: 'suggestionGradeCAMZ' },
+            'D': { inputId: 'priceGradeD', suggestionId: 'suggestionGradeD' },
+            'defective': { inputId: 'priceDefective', suggestionId: 'suggestionDefective' }
+        };
+
+        for (const [grade, ids] of Object.entries(gradeMap)) {
+            const el = document.getElementById(ids.suggestionId);
+            if (!el) continue;
+            el.innerHTML = '';
+
+            try {
+                const suggestion = await pricingDB.getSmartSuggestions(model, storage, grade);
+                if (suggestion && suggestion.recommended && suggestion.recommended > 0) {
+                    const price = suggestion.recommended.toFixed(2);
+                    el.innerHTML = `Suggested: <span class="suggestion-link" data-target="${ids.inputId}" data-value="${price}">$${price}</span>`;
+                }
+            } catch (err) {
+                // Suggestions are optional, don't block on errors
+            }
+        }
+
+        // Attach click handlers for suggestion links
+        this.modalElement.querySelectorAll('.suggestion-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                const targetId = e.target.dataset.target;
+                const value = e.target.dataset.value;
+                const input = document.getElementById(targetId);
+                if (input) {
+                    input.value = value;
+                    input.focus();
+                }
+            });
+        });
+    }
 
     /**
      * Save prices to database

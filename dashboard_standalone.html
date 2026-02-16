@@ -367,12 +367,6 @@
                         </svg>
                         Data Manager
                     </a>
-                    <a href="pricing-manager.html" class="nav-link">
-                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
-                        Pricing
-                    </a>
                     <a href="ai-chat.html" class="nav-link">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
@@ -395,10 +389,6 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
                         </svg>
                     </button>
-
-                    <select id="locationFilter" class="btn btn-secondary" style="cursor:pointer;padding:8px 12px;font-size:13px;border-radius:8px;" onchange="onLocationFilterChange()">
-                        <option value="all">All Locations</option>
-                    </select>
 
                     <button class="btn btn-primary" onclick="refreshData()">
                         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -597,10 +587,8 @@
 
     <!-- Data & Scripts -->
     <script src="wholecell-transformer.js"></script>
-    <script src="combined_details.preloaded.js"></script>
     <script>
         let inventoryData = [];
-        let allInventoryData = []; // unfiltered copy
         let charts = {};
 
         // Chart.js theme configuration
@@ -692,110 +680,38 @@
 
         async function loadData() {
             try {
-                // Priority 1: Load from local available-inventory.json snapshot (15K+ items)
+                // Priority 1: Load from cached API (Vercel Blob, instant)
                 try {
-                    const response = await fetch('data/available-inventory.json');
+                    const response = await fetch('/api/inventory');
                     if (response.ok) {
                         const rawData = await response.json();
-                        if (rawData.data && Array.isArray(rawData.data) && rawData.data.length > 0) {
-                            const transformedItems = WholecellTransformer.transformAll(rawData.data);
-                            allInventoryData = transformedItems;
+                        if (rawData.items && Array.isArray(rawData.items)) {
+                            const transformedItems = WholecellTransformer.transformAll(rawData.items);
                             inventoryData = transformedItems;
-                            document.getElementById('lastUpdated').textContent = `Data Source: Wholecell Snapshot (${rawData.count || rawData.data.length} items)`;
-                            populateLocationFilter();
+
+                            if (rawData.metadata && rawData.metadata.timestamp) {
+                                const date = new Date(rawData.metadata.timestamp);
+                                document.getElementById('lastUpdated').textContent = `Synced: ${date.toLocaleString()}`;
+                            }
+
                             updateDashboard();
                             return;
                         }
                     }
                 } catch (e) {
-                    console.warn('Could not load local snapshot, trying backup...', e);
+                    console.warn('Could not load from /api/inventory, trying fallback:', e.message);
                 }
 
-                // Priority 2: Try the WholeCell backup in assets
-                try {
-                    const response = await fetch('assets/wholecell-data-backup-2025-11-24.json');
-                    if (response.ok) {
-                        const rawData = await response.json();
-                        const transformedItems = WholecellTransformer.transformAll(rawData.items);
-                        allInventoryData = transformedItems;
-                        inventoryData = transformedItems;
-                        if (rawData.metadata && rawData.metadata.timestamp) {
-                            const date = new Date(rawData.metadata.timestamp);
-                            document.getElementById('lastUpdated').textContent = `Data Source: WholeCell Export (${date.toLocaleString()})`;
-                        }
-                        populateLocationFilter();
-                        updateDashboard();
-                        return;
-                    }
-                } catch (e) {
-                    console.warn('Could not load WholeCell backup, falling back to preloaded/combined data', e);
-                }
-
-                // Priority 3: Fallback to existing data sources
-                if (Array.isArray(window.__PRELOADED_INVENTORY__)) {
-                    allInventoryData = window.__PRELOADED_INVENTORY__;
-                    inventoryData = window.__PRELOADED_INVENTORY__;
-                } else {
-                    const response = await fetch('combined_details.json');
-                    const data = await response.json();
-                    allInventoryData = data;
-                    inventoryData = data;
-                }
-                populateLocationFilter();
+                // Priority 2: Fallback to combined_details.json
+                const response = await fetch('combined_details.json');
+                inventoryData = await response.json();
                 updateDashboard();
                 updateLastUpdated();
             } catch (error) {
                 console.error('Error loading data:', error);
-                allInventoryData = [];
                 inventoryData = [];
                 updateDashboard();
             }
-        }
-
-        // Populate the location filter dropdown
-        function populateLocationFilter() {
-            const select = document.getElementById('locationFilter');
-            if (!select) return;
-
-            const locationCounts = {};
-            allInventoryData.forEach(item => {
-                const loc = item.location || 'No Location';
-                locationCounts[loc] = (locationCounts[loc] || 0) + 1;
-            });
-
-            const sorted = Object.entries(locationCounts).sort((a, b) => b[1] - a[1]);
-            const current = select.value;
-            select.innerHTML = '';
-
-            const allOpt = document.createElement('option');
-            allOpt.value = 'all';
-            allOpt.textContent = `All Locations (${allInventoryData.length})`;
-            select.appendChild(allOpt);
-
-            sorted.forEach(([loc, count]) => {
-                const opt = document.createElement('option');
-                opt.value = loc;
-                opt.textContent = `${loc} (${count})`;
-                select.appendChild(opt);
-            });
-
-            if (current && current !== 'all') {
-                select.value = sorted.some(([l]) => l === current) ? current : 'all';
-            }
-        }
-
-        // Handle location filter change
-        function onLocationFilterChange() {
-            const select = document.getElementById('locationFilter');
-            const loc = select ? select.value : 'all';
-
-            if (loc === 'all') {
-                inventoryData = allInventoryData;
-            } else {
-                inventoryData = allInventoryData.filter(item => (item.location || 'No Location') === loc);
-            }
-
-            updateDashboard();
         }
 
         function updateDashboard() {

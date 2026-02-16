@@ -1,3 +1,6 @@
+# Dependencies
+node_modules/
+
 # Environment & secrets
 .env
 .env.local
@@ -11,28 +14,31 @@ venv/
 .venv/
 *.egg-info/
 
-# Logs
-*.log
-logs/
-data/logs/
-
 # OS files
 .DS_Store
 Thumbs.db
 
-# IDE
+# Logs
+logs/
+*.log
+*.pid
+
+# IDE / Editor
 .vscode/
 .idea/
+.cursor/
+.claude/
 
-# Data snapshots (large files)
+# Data artifacts & snapshots
+data/.DS_Store
+data/.claude/
+data/.cursor/
+data/.vscode/
+data/logs/
+data/proxy-server.log
 data/available-inventory.json
 data/combined_details.preloaded.js.OLD
-
-# PID files
-*.pid
-logs/*.pid
-data/logs/*.pid
+*.OLD
 
 # Proxy logs
 proxy-server.log
-data/proxy-server.log
