@@ -28,9 +28,83 @@ data/available-inventory.json (5.7MB, 9692 items)
 ### No Blockers
 Data loading works. This task is cleanup only — removing dead code and aligning the two dashboard files.
 
-## Task 2: Unified Header
-- Use header from `dashboard_standalone.html` across ALL pages
-- Currently each page has different header HTML/CSS
+## Task 2: Unified Header ✅ PLANNED
+
+### Analysis — 3 Different Header Systems Found
+
+**Canonical header** (from `dashboard_standalone.html`):
+- Uses `<header class="header no-print">` with `.header-inner`, `.header-brand`, `.header-nav`, `.header-actions`
+- CSS classes: `header`, `header-inner`, `header-brand`, `header-logo`, `header-title`, `header-subtitle`, `header-nav`, `nav-link`, `header-actions`
+- Nav links: Dashboard, Data Manager, Pricing, Assistant (4 links)
+- Actions: sync indicator, theme toggle, refresh button
+- Styled via `styles/theme.css` (design system)
+
+**Pages using canonical header (already correct):**
+| Page | Status | Notes |
+|------|--------|-------|
+| `dashboard_standalone.html` | ✅ Source of truth | Lines 341-410 |
+| `index.html` | ✅ Matches canonical | Lines 371-410, identical structure |
+| `ai-chat.html` | ✅ Matches canonical | Lines 497-540, identical structure |
+| `data-manager.html` | ✅ Matches canonical | Lines 788-830, identical structure |
+
+**Pages with DIFFERENT headers:**
+| Page | Header System | Key Differences |
+|------|--------------|-----------------|
+| `deal-maker.html` | Custom `<nav class="gnav">` | Completely different CSS (`.gnav`, `.gnav-brand`, `.gnav-link`), inline styles in `<style>` block. No subtitle. No sync indicator. No refresh button. Links to `index.html` instead of `dashboard_standalone.html`. Has "Deal Maker" nav item but missing "Assistant". |
+| `pricing-manager.html` | Custom `<nav class="global-nav">` + `<header class="top-bar">` | TWO separate nav elements. Global nav has its own CSS (`.global-nav`, `.global-nav-inner`, `.gnav-link`). Dark themed by default. No logo SVG. Has an additional top-bar with search, filters, view toggle. Missing "Deal Maker" nav link. |
+
+### Nav Link Inventory (What Each Page Currently Has)
+| Link | dashboard_standalone | index | ai-chat | data-manager | deal-maker | pricing-manager |
+|------|---------------------|-------|---------|--------------|------------|-----------------|
+| Dashboard | ✅ | ✅ | ✅ | ✅ | ✅ (→index.html) | ✅ |
+| Data Manager | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Pricing | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Assistant | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Deal Maker | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+
+### Unification Plan
+
+**Step 1: Add "Deal Maker" to canonical nav**
+- Add a 5th nav link to the canonical header between Pricing and Assistant
+- Icon: clipboard/checklist SVG (from deal-maker.html)
+
+**Step 2: Fix `deal-maker.html`**
+- Remove inline `.gnav-*` CSS (lines ~15-25)
+- Replace `<nav class="gnav">` block with canonical `<header class="header no-print">` block
+- Add `<link rel="stylesheet" href="styles/theme.css">` if missing
+- Add `<script src="scripts/theme-switcher.js"></script>` if missing
+- Set Deal Maker nav-link as `active`
+
+**Step 3: Fix `pricing-manager.html`**
+- Remove `<nav class="global-nav">` and its inline CSS (~lines 95-125)
+- Replace with canonical `<header class="header no-print">` block
+- Keep the `<header class="top-bar">` (page-specific search/filter bar — NOT part of global nav)
+- Set Pricing nav-link as `active`
+- Ensure `styles/theme.css` and `scripts/theme-switcher.js` are loaded
+
+**Step 4: Update all 6 pages** to have the same 5 nav links:
+- Dashboard → `dashboard_standalone.html`
+- Data Manager → `data-manager.html`
+- Pricing → `pricing-manager.html`
+- Deal Maker → `deal-maker.html`
+- Assistant → `ai-chat.html`
+
+**Step 5: Decide `index.html` vs `dashboard_standalone.html`**
+- Both are dashboards. `index.html` is the landing page. Dashboard link should point to `dashboard_standalone.html` (or redirect index→dashboard_standalone).
+- Keep as-is for now — both already have the correct header.
+
+### Files to Change
+| File | Change | Risk |
+|------|--------|------|
+| `deal-maker.html` | Replace gnav with canonical header, add theme.css/theme-switcher imports | Medium — may break layout if gnav spacing was load-bearing |
+| `pricing-manager.html` | Replace global-nav with canonical header, keep top-bar | Medium — dual-nav removal needs care |
+| `dashboard_standalone.html` | Add Deal Maker nav link | Low |
+| `index.html` | Add Deal Maker nav link | Low |
+| `ai-chat.html` | Add Deal Maker nav link | Low |
+| `data-manager.html` | Add Deal Maker nav link | Low |
+
+### No Blockers
+All CSS comes from `styles/theme.css`. Header HTML is self-contained. Straightforward copy-paste with active class adjustment per page.
 
 ## Task 3: Sorting Manager — Sort by Location
 - Add location-based sorting in sorting manager
