@@ -1997,7 +1997,7 @@
             const storage = item.STORAGE || 'N/A';
             const grade = item.GRADE || '';
             const color = item.COLOR || '';
-            if (grade === 'D' || grade === 'Damaged' || grade === 'Defective') return;
+            // D grade items included
             const key = `${model}|${storage}`;
             if (!map.has(key)) {
                 const bd = detectBrand(model);
@@ -2005,9 +2005,9 @@
                 ALLOWED_LOCATIONS.forEach(l => locs[l] = 0);
                 map.set(key, {
                     key, model, storage,
-                    grades: { A: 0, B: 0, 'C (AMZ)': 0, C: 0 },
+                    grades: { A: 0, B: 0, 'C (AMZ)': 0, C: 0, D: 0 },
                     colors: {},
-                    colorsByGrade: { A: {}, B: {}, 'C (AMZ)': {}, C: {} },
+                    colorsByGrade: { A: {}, B: {}, 'C (AMZ)': {}, C: {}, D: {} },
                     price: 0, lastPriceUpdate: null, total: 0,
                     brand: bd.brand, brandType: bd.type,
                     locations: locs,
@@ -2296,7 +2296,7 @@
             const inDeal = dealItems.has(key);
 
             // Compact grade display
-            const grades = ['A', 'B', 'C (AMZ)', 'C'].map(grade => {
+            const grades = ['A', 'B', 'C (AMZ)', 'C', 'D'].map(grade => {
                 const qty = g.grades[grade] || 0;
                 const label = grade === 'C (AMZ)' ? 'AMZ' : grade;
                 return `<span class="grade-item ${qty === 0 ? 'empty' : ''}"><span class="g-label">${label}</span> ${qty}</span>`;
@@ -2618,7 +2618,7 @@
                 const moreColors = Object.keys(g.colors || {}).length > 4 ? ` +${Object.keys(g.colors).length - 4}` : '';
                 return `
                 <div class="deal-search-opt" onclick="selectDealModel('${escJs(g.key)}')">
-                    <div><div class="ds-name">${escHtml(g.model)}</div><div class="ds-meta">${escHtml(g.storage)} · A:${g.grades.A} B:${g.grades.B} C:${g.grades.C} AMZ:${g.grades['C (AMZ)']}</div>${colorList ? `<div class="ds-colors">${escHtml(colorList)}${moreColors}</div>` : ''}</div>
+                    <div><div class="ds-name">${escHtml(g.model)}</div><div class="ds-meta">${escHtml(g.storage)} · A:${g.grades.A} B:${g.grades.B} C:${g.grades.C} AMZ:${g.grades['C (AMZ)']} D:${g.grades.D || 0}</div>${colorList ? `<div class="ds-colors">${escHtml(colorList)}${moreColors}</div>` : ''}</div>
                     <div class="ds-stock">${g.total}</div>
                 </div>`;
             }).join('');
@@ -2638,7 +2638,7 @@
         document.getElementById('dealModelSearch').value = '';
         document.getElementById('dealAddSelected').textContent = `${dealSearchSelected.model} — ${dealSearchSelected.storage}`;
         const gr = dealSearchSelected.grades;
-        document.getElementById('dealAddStock').textContent = `Stock: A:${gr.A}  B:${gr.B}  C:${gr.C}  AMZ:${gr['C (AMZ)']}`;
+        document.getElementById('dealAddStock').textContent = `Stock: A:${gr.A}  B:${gr.B}  C:${gr.C}  AMZ:${gr['C (AMZ)']}  D:${gr.D || 0}`;
         document.getElementById('dealAddRow').style.display = 'block';
         document.getElementById('dealPriceInput').value = dealSearchSelected.price > 0 ? dealSearchSelected.price : '';
         document.getElementById('dealQtyInput').value = '1';
@@ -2648,14 +2648,14 @@
         document.getElementById('dealAddBtn').disabled = true;
         document.getElementById('dealAddPreview').textContent = '';
         const gradeChips = document.getElementById('dealGradeChips');
-        gradeChips.innerHTML = ['A', 'B', 'C', 'C (AMZ)'].map(g => {
+        gradeChips.innerHTML = ['A', 'B', 'C', 'C (AMZ)', 'D'].map(g => {
             const count = gr[g] || 0;
             const disabled = count === 0;
             return `<div class="deal-chip${disabled ? ' disabled' : ''}" data-grade="${escHtml(g)}" onclick="pickDealGrade(this,'${escJs(g)}')">${escHtml(g)}<span class="dc-count">(${count})</span></div>`;
         }).join('');
 
         // Auto-select first available grade
-        const firstGrade = ['A', 'B', 'C', 'C (AMZ)'].find(g => gr[g] > 0);
+        const firstGrade = ['A', 'B', 'C', 'C (AMZ)', 'D'].find(g => gr[g] > 0);
         if (firstGrade) {
             const el = gradeChips.querySelector(`[data-grade="${firstGrade}"]`);
             if (el) pickDealGrade(el, firstGrade);
@@ -2668,7 +2668,7 @@
         // Sync hidden grade select
         const gradeSelect = document.getElementById('dealGradeSelect');
         gradeSelect.innerHTML = '';
-        ['A', 'B', 'C', 'C (AMZ)'].forEach(g => {
+        ['A', 'B', 'C', 'C (AMZ)', 'D'].forEach(g => {
             if (gr[g] > 0) { const opt = document.createElement('option'); opt.value = g; opt.textContent = g; gradeSelect.appendChild(opt); }
         });
     }
@@ -2708,7 +2708,7 @@
         // Update stock hint
         document.getElementById('dealAddStock').textContent = grade
             ? `Stock for Grade ${grade}: ${gradeTotal} units`
-            : `Stock: A:${group.grades.A}  B:${group.grades.B}  C:${group.grades.C}  AMZ:${group.grades['C (AMZ)']}`;
+            : `Stock: A:${group.grades.A}  B:${group.grades.B}  C:${group.grades.C}  AMZ:${group.grades['C (AMZ)']}  D:${group.grades.D || 0}`;
     }
 
     function pickDealColor(el, color) {
@@ -3179,7 +3179,7 @@
         wsData.push(['Date', dateStr]);
         wsData.push(['Items', rows.length, 'Total Units', rows.reduce((s, g) => s + g.total, 0)]);
         wsData.push([]);
-        wsData.push(['MODEL', 'STORAGE', 'BRAND', 'A', 'B', 'C (AMZ)', 'C', 'TOTAL', 'PRICE', 'AVG COST', 'VALUE',
+        wsData.push(['MODEL', 'STORAGE', 'BRAND', 'A', 'B', 'C (AMZ)', 'C', 'D', 'TOTAL', 'PRICE', 'AVG COST', 'VALUE',
             'Ready Room', 'Processing', 'Receiving', 'Damaged', 'Locked', 'Inbound']);
 
         let totalUnits = 0, totalValue = 0;
@@ -3191,7 +3191,7 @@
             const avgCost = g.costCount > 0 ? Math.round(g.totalCost / g.costCount) : '';
             wsData.push([
                 g.model, g.storage, g.brand,
-                g.grades.A || '', g.grades.B || '', g.grades['C (AMZ)'] || '', g.grades.C || '',
+                g.grades.A || '', g.grades.B || '', g.grades['C (AMZ)'] || '', g.grades.C || '', g.grades.D || '',
                 g.total, g.price > 0 ? g.price : '', avgCost, val > 0 ? val : '',
                 loc['Ready Room'] || '', loc['Processing'] || '', loc['Receiving'] || '',
                 loc['Damaged'] || '', loc['Locked'] || '', loc['Inbound'] || ''
@@ -3251,7 +3251,7 @@
         if (buyer) csv.push(csvLine(['Buyer', buyer]));
         if (notes) csv.push(csvLine(['Notes', notes]));
         csv.push('');
-        csv.push(csvLine(['MODEL', 'STORAGE', 'A', 'B', 'C (AMZ)', 'C', 'TOTAL', 'PRICE', 'VALUE']));
+        csv.push(csvLine(['MODEL', 'STORAGE', 'A', 'B', 'C (AMZ)', 'C', 'D', 'TOTAL', 'PRICE', 'VALUE']));
         let totalUnits = 0, totalValue = 0;
         rows.forEach(g => {
             const val = getRowValue(g);
@@ -3259,7 +3259,7 @@
             totalValue += val;
             csv.push(csvLine([
                 g.model, g.storage,
-                d(g.grades.A), d(g.grades.B), d(g.grades['C (AMZ)']), d(g.grades.C),
+                d(g.grades.A), d(g.grades.B), d(g.grades['C (AMZ)']), d(g.grades.C), d(g.grades.D),
                 g.total, g.price > 0 ? g.price : '', val > 0 ? val : ''
             ]));
         });
