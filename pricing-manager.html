@@ -960,10 +960,13 @@
         .deal-summary-row.total .val { color: var(--positive); }
         .deal-actions {
             padding: var(--space-3) var(--space-5);
+            padding-bottom: calc(var(--space-3) + 44px);
             display: flex;
             gap: var(--space-2);
             border-top: 1px solid var(--border-subtle);
             flex-shrink: 0;
+            position: relative;
+            z-index: calc(var(--z-sticky) + 10);
         }
         .deal-actions .btn {
             flex: 1;
