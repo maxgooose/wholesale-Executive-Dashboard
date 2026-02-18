@@ -1605,7 +1605,7 @@
         </div>
         <div class="deal-actions" id="dealActions" style="display:none;">
             <button class="btn btn-secondary" onclick="clearDeal()">Clear</button>
-            <button class="btn btn-primary" onclick="openProceedModal()" style="flex:2;">
+            <button class="btn btn-primary" id="proceedBtn" style="flex:2;pointer-events:auto;position:relative;z-index:9999;">
                 Proceed →
             </button>
         </div>
@@ -2851,6 +2851,31 @@
         exportDeal();
         closeProceedModal();
     }
+
+    // Attach proceed button listener
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('proceedBtn');
+        if (btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                console.log('Proceed clicked, dealItems size:', dealItems.size);
+                openProceedModal();
+            });
+        }
+    });
+    // Also attach immediately in case DOMContentLoaded already fired
+    setTimeout(() => {
+        const btn = document.getElementById('proceedBtn');
+        if (btn && !btn._listenerAttached) {
+            btn._listenerAttached = true;
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                e.preventDefault();
+                openProceedModal();
+            });
+        }
+    }, 1000);
 
     function exportDeal() {
         if (dealItems.size === 0) { showToast('No items in deal', 'error'); return; }
