@@ -2337,7 +2337,17 @@
        ══════════════════════════════════════════════════════════ */
     function updateFooter() {
         let units = 0, val = 0;
-        filteredGroups.forEach(g => { units += g.total; val += getRowValue(g); });
+        filteredGroups.forEach(g => {
+            // If location filter is active, count only units in those locations
+            if (activeLocations.size > 0) {
+                let locUnits = 0;
+                activeLocations.forEach(loc => { locUnits += (g.locations && g.locations[loc]) ? g.locations[loc] : 0; });
+                units += locUnits;
+            } else {
+                units += g.total;
+            }
+            val += getRowValue(g);
+        });
         document.getElementById('footerShowing').textContent = filteredGroups.length.toLocaleString();
         document.getElementById('footerUnits').textContent = units.toLocaleString();
         document.getElementById('footerValue').textContent = '$' + val.toLocaleString();
