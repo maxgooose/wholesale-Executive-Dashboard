@@ -1,12 +1,12 @@
 {
   "name": "wholesale-executive-dashboard",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
-    "sync": "node scripts/sync-wholecell.js"
+    "sync": "node scripts/sync-wholecell.js",
+    "sync:full": "node scripts/sync-wholecell.js --full"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.0.2",
-    "@vercel/blob": "^0.27.0"
+    "@neondatabase/serverless": "^1.0.2"
   }
 }

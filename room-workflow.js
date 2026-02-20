@@ -55,15 +55,7 @@ document.addEventListener('inventoryUpdate', function(event) {
 
 // Load inventory data
 async function loadInventoryData() {
-    // PRIORITY 1: Load from local JSON snapshot (fastest, no external deps)
-    try {
-        const loaded = await loadFromLocalSnapshot();
-        if (loaded) return;
-    } catch (e) {
-        console.warn('Could not load local snapshot:', e.message);
-    }
-
-    // PRIORITY 2: Load from Vercel Blob cache via API route
+    // PRIORITY 1: Load from server API (backed by Neon PostgreSQL)
     try {
         const loaded = await loadFromCachedAPI();
         if (loaded) return;
@@ -71,13 +63,15 @@ async function loadInventoryData() {
         console.warn('Could not load from /api/inventory:', apiError.message);
     }
 
-    // PRIORITY 3: Load from Wholecell API directly via proxy (slow fallback for local dev)
+    // PRIORITY 2: Fallback to local JSON snapshot
     try {
-        await loadFromWholecell();
-    } catch (wholecellError) {
-        console.error('Failed to load from Wholecell API:', wholecellError);
-        showConnectionError(wholecellError);
+        const loaded = await loadFromLocalSnapshot();
+        if (loaded) return;
+    } catch (e) {
+        console.warn('Could not load local snapshot:', e.message);
     }
+
+    console.error('Failed to load inventory data from any source');
 }
 
 // Load from local JSON snapshot file
@@ -109,7 +103,7 @@ async function loadFromLocalSnapshot() {
     return true;
 }
 
-// Load from Vercel Blob cache via the API route
+// Load from server API (backed by Neon PostgreSQL)
 async function loadFromCachedAPI() {
     console.log('Fetching from /api/inventory...');
 
@@ -119,16 +113,16 @@ async function loadFromCachedAPI() {
     }
 
     const rawData = await response.json();
+    const items = rawData.data || rawData.items;
 
-    if (!rawData.items || !Array.isArray(rawData.items)) {
-        throw new Error('API response does not contain valid items array');
+    if (!items || !Array.isArray(items) || items.length === 0) {
+        throw new Error('API response does not contain valid items');
     }
 
-    console.log(`Loaded ${rawData.items.length} items from cached API`);
+    console.log(`Loaded ${items.length} items from API`);
 
-    // Transform using WholecellTransformer
-    const transformedData = WholecellTransformer.transformAll(rawData.items);
-    const stats = WholecellTransformer.getTransformStats(rawData.items, transformedData);
+    const transformedData = WholecellTransformer.transformAll(items);
+    const stats = WholecellTransformer.getTransformStats(items, transformedData);
 
     // Hydrate inventory
     hydrateInventoryData(transformedData);
@@ -151,90 +145,6 @@ async function loadFromCachedAPI() {
     return true;
 }
 
-// Load from Wholecell API with INCREMENTAL SYNC (⚡ SUPER FAST)
-async function loadFromWholecell() {
-    // Initialize Wholecell API client
-    if (!window.wholecellAPI) {
-        window.wholecellAPI = new WholecellAPI();
-    }
-
-    // Check if proxy is healthy
-    const isHealthy = await window.wholecellAPI.checkHealth();
-    if (!isHealthy) {
-        throw new Error('Wholecell proxy server is not reachable');
-    }
-
-    console.log('🚀 Loading with Incremental Sync (instant after first load)...');
-    
-    // Initialize incremental sync
-    if (!window.wholecellIncrementalSync) {
-        window.wholecellIncrementalSync = new WholecellIncrementalSync();
-    }
-
-    // Check cache status
-    const cacheStats = await window.wholecellIncrementalSync.getCacheStats();
-    if (cacheStats.exists) {
-        console.log(`⚡ Cache found: ${cacheStats.itemCount} items, ${cacheStats.ageMinutes} min old`);
-        updateLoadingMessage(`⚡ Loading from cache (${cacheStats.itemCount} items)...`);
-    } else {
-        console.log('⚠️ First load: ~18 minutes (builds cache for instant future loads)');
-        updateLoadingMessage('First load: ~18 minutes (one-time, future loads instant)...');
-    }
-
-    // Smart sync: Load from cache immediately, then sync changes in background
-    const wholecellData = await window.wholecellIncrementalSync.smartSync(
-        window.wholecellAPI,
-        {
-            onProgress: (status) => {
-                switch(status.stage) {
-                    case 'cache_loaded':
-                        updateLoadingMessage(`⚡ Loaded ${status.itemCount} items from cache instantly!`);
-                        break;
-                    case 'full_sync':
-                        const percent = Math.round(status.percent);
-                        updateLoadingMessage(
-                            `Building cache: ${percent}% (page ${status.current}/${status.total})<br>` +
-                            `Elapsed: ${status.elapsed}s | Remaining: ~${status.remaining}s`
-                        );
-                        break;
-                    case 'incremental_check':
-                    case 'incremental_fetch':
-                        updateLoadingMessage(status.message);
-                        break;
-                }
-            },
-            onComplete: (result) => {
-                if (result.success) {
-                    const totalChanges = (result.changes?.new || 0) + (result.changes?.modified || 0);
-                    if (totalChanges > 0) {
-                        showNotification(`🔄 ${totalChanges} items updated`);
-                    }
-                }
-            }
-        }
-    );
-
-    console.log(`Loaded ${wholecellData.length} items from Wholecell`);
-
-    // Transform data
-    updateLoadingMessage('Transforming data...');
-    const transformedData = WholecellTransformer.transformAll(wholecellData);
-
-    // Get transform stats
-    const stats = WholecellTransformer.getTransformStats(wholecellData, transformedData);
-    console.log('Transform stats:', stats);
-
-    // Hydrate inventory
-    hydrateInventoryData(transformedData);
-    
-    // Save batch info
-    saveBatchInfo('wholecell_incremental_sync');
-
-    console.log('✅ Successfully loaded from Wholecell API');
-    
-    // Show success notification
-    showNotification(`⚡ Loaded ${stats.valid} items from Wholecell`);
-}
 // Update loading message in the sync status indicator
 function updateLoadingMessage(message) {
     const syncStatus = document.getElementById('wholecellSyncStatus');

@@ -1,30 +1,26 @@
 #!/usr/bin/env node
 /**
- * Wholecell Inventory Sync Script
- * ================================
- * Fetches AVAILABLE inventory from Wholecell API (Ready Room + Processing only).
- * Saves to data/available-inventory.json and optionally Vercel Blob Storage.
+ * WholeCell Inventory Sync — Server-Side Delta Sync
+ * ==================================================
+ * Uses WholeCell's `updated_at_gt` filter to fetch only changed items,
+ * then upserts them into Neon PostgreSQL.
  *
- * Optimized: Uses ?status=Available server-side filter (~173 pages vs 2,656).
- * Then client-side filters to Ready Room + Processing locations only.
- * Supports checkpoint resume so crashes don't lose progress.
+ * Modes:
+ *   - Delta sync (default): Fetches items updated since last sync.
+ *     Runs in ~1-10 seconds. Intended for every-10-minute cron.
+ *   - Full reconciliation: Fetches ALL items, upserts everything,
+ *     then deletes stale rows. Runs automatically when the last full
+ *     reconciliation is older than FULL_RECONCILIATION_INTERVAL_HOURS.
+ *     Can be forced with --full flag.
  *
  * Required env vars:
- *   WHOLECELL_APP_ID       - Wholecell API app ID
- *   WHOLECELL_APP_SECRET   - Wholecell API app secret
- *   BLOB_READ_WRITE_TOKEN  - Vercel Blob read/write token (optional for local-only mode)
+ *   WHOLECELL_APP_ID       — WholeCell API app ID
+ *   WHOLECELL_APP_SECRET   — WholeCell API app secret
+ *   DATABASE_URL           — Neon PostgreSQL connection string
  *
  * Usage:
- *   node scripts/sync-wholecell.js              # Full sync (fetch + blob upload)
- *   node scripts/sync-wholecell.js --local-only # Fetch + save JSON only (no blob)
- *   node scripts/sync-wholecell.js --resume     # Resume from checkpoint if exists
- *   node scripts/sync-wholecell.js --diff       # Show diff against last sync (incremental)
- *
- * Incremental Sync (Hash-Based Diff):
- *   After each sync, saves a fingerprint of every item (id → hash of key fields).
- *   On next sync, compares against the fingerprint to detect added/removed/changed items.
- *   If nothing changed, skips the Blob upload entirely to save bandwidth.
- *   Diff results saved to data/sync-diffs/ for audit trail.
+ *   node scripts/sync-wholecell.js          # Auto-detect: delta or full
+ *   node scripts/sync-wholecell.js --full   # Force full reconciliation
  */
 
 process.on('uncaughtException', (err) => {
@@ -38,141 +34,22 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
-const path = require('path');
-const fs = require('fs');
-const crypto = require('crypto');
+const { neon } = require('@neondatabase/serverless');
 
-// Config
+// --------------- Config ---------------
+
 const APP_ID = process.env.WHOLECELL_APP_ID;
 const APP_SECRET = process.env.WHOLECELL_APP_SECRET;
+const DATABASE_URL = process.env.DATABASE_URL;
 const API_BASE = 'https://api.wholecell.io/api/v1/inventories';
-const RATE_LIMIT_MS = 1000;
+const RATE_LIMIT_MS = 550;
 const MAX_RETRIES = 5;
-const ALLOWED_LOCATIONS = null; // No location filter — include ALL locations
-const LOCAL_OUTPUT = path.join(__dirname, '..', 'data', 'available-inventory.json');
-const CHECKPOINT_FILE = path.join(__dirname, '..', 'data', '.sync-checkpoint.json');
-const FINGERPRINT_FILE = path.join(__dirname, '..', 'data', '.inventory-fingerprint.json');
-const DIFF_DIR = path.join(__dirname, '..', 'data', 'sync-diffs');
-const LOCAL_ONLY = process.argv.includes('--local-only');
-const RESUME = process.argv.includes('--resume');
-const DIFF_ONLY = process.argv.includes('--diff');
+const BATCH_SIZE = 200;
+const STATUSES_TO_FETCH = ['Available', 'Inbound'];
+const FULL_RECONCILIATION_INTERVAL_HOURS = 12;
+const FORCE_FULL = process.argv.includes('--full');
 
-// --- Incremental Sync: Fingerprinting & Diffing ---
-
-function hashItem(item) {
-  // Hash the fields that matter for detecting meaningful changes
-  const key = [
-    item.id,
-    item.status,
-    item.location?.name || item.location || '',
-    item.sale_price || '',
-    item.cost || '',
-    item.grade || '',
-    item.updated_at || '',
-  ].join('|');
-  return crypto.createHash('md5').update(key).digest('hex').substring(0, 12);
-}
-
-function buildFingerprint(items) {
-  const fp = {};
-  for (const item of items) {
-    fp[item.id] = {
-      hash: hashItem(item),
-      model: item.item_type?.name || item.model || 'Unknown',
-      location: item.location?.name || item.location || '',
-      status: item.status || '',
-    };
-  }
-  return fp;
-}
-
-function loadFingerprint() {
-  try {
-    if (fs.existsSync(FINGERPRINT_FILE)) {
-      return JSON.parse(fs.readFileSync(FINGERPRINT_FILE, 'utf8'));
-    }
-  } catch (e) {
-    console.warn('[WARN] Could not load fingerprint:', e.message);
-  }
-  return null;
-}
-
-function saveFingerprint(items) {
-  const fp = buildFingerprint(items);
-  const payload = {
-    savedAt: new Date().toISOString(),
-    totalItems: items.length,
-    fingerprints: fp,
-  };
-  const dir = path.dirname(FINGERPRINT_FILE);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(FINGERPRINT_FILE, JSON.stringify(payload));
-  console.log(`Fingerprint saved: ${Object.keys(fp).length} items`);
-  return payload;
-}
-
-function computeDiff(currentItems, previousFp) {
-  const current = buildFingerprint(currentItems);
-  const prev = previousFp.fingerprints || {};
-
-  const added = [];
-  const removed = [];
-  const changed = [];
-
-  // Find added & changed
-  for (const [id, cur] of Object.entries(current)) {
-    if (!prev[id]) {
-      added.push({ id, model: cur.model, location: cur.location, status: cur.status });
-    } else if (prev[id].hash !== cur.hash) {
-      changed.push({
-        id,
-        model: cur.model,
-        before: { location: prev[id].location, status: prev[id].status },
-        after: { location: cur.location, status: cur.status },
-      });
-    }
-  }
-
-  // Find removed
-  for (const [id, old] of Object.entries(prev)) {
-    if (!current[id]) {
-      removed.push({ id, model: old.model, location: old.location, status: old.status });
-    }
-  }
-
-  return {
-    timestamp: new Date().toISOString(),
-    previousSync: previousFp.savedAt,
-    summary: {
-      added: added.length,
-      removed: removed.length,
-      changed: changed.length,
-      unchanged: Object.keys(current).length - added.length - changed.length,
-      totalBefore: Object.keys(prev).length,
-      totalAfter: Object.keys(current).length,
-    },
-    added,
-    removed,
-    changed,
-  };
-}
-
-function saveDiff(diff) {
-  if (!fs.existsSync(DIFF_DIR)) fs.mkdirSync(DIFF_DIR, { recursive: true });
-  const ts = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
-  const diffFile = path.join(DIFF_DIR, `sync-diff-${ts}.json`);
-  fs.writeFileSync(diffFile, JSON.stringify(diff, null, 2));
-  console.log(`Diff saved: ${diffFile}`);
-
-  // Keep only last 20 diff files
-  const files = fs.readdirSync(DIFF_DIR).filter(f => f.startsWith('sync-diff-')).sort();
-  if (files.length > 20) {
-    for (const old of files.slice(0, files.length - 20)) {
-      fs.unlinkSync(path.join(DIFF_DIR, old));
-    }
-  }
-  return diffFile;
-}
+// --------------- Helpers ---------------
 
 function getAuthHeader() {
   return `Basic ${Buffer.from(`${APP_ID}:${APP_SECRET}`).toString('base64')}`;
@@ -182,34 +59,117 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function saveCheckpoint(items, lastPage, totalPages) {
-  try {
-    const dataDir = path.dirname(CHECKPOINT_FILE);
-    if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-    fs.writeFileSync(CHECKPOINT_FILE, JSON.stringify({ items, lastPage, totalPages, savedAt: new Date().toISOString() }));
-  } catch (e) {
-    console.warn('[WARN] Could not save checkpoint:', e.message);
-  }
+function extractFields(item) {
+  const pv = item.product_variation || {};
+  const product = pv.product || {};
+  return {
+    id: item.id,
+    esn: item.esn || null,
+    status: item.status || null,
+    model: product.model || null,
+    manufacturer: product.manufacturer || null,
+    capacity: product.capacity || null,
+    color: product.color || null,
+    grade: pv.grade || null,
+    location_name: item.location?.name || null,
+    warehouse_name: item.warehouse?.name || null,
+    cost_cents: item.total_price_paid || null,
+    sale_price_cents: item.sale_price || null,
+    wc_created_at: item.created_at || null,
+    wc_updated_at: item.updated_at || null,
+    raw_data: JSON.stringify(item),
+  };
 }
 
-function loadCheckpoint() {
-  try {
-    if (fs.existsSync(CHECKPOINT_FILE)) {
-      const data = JSON.parse(fs.readFileSync(CHECKPOINT_FILE, 'utf8'));
-      console.log(`Resuming from checkpoint: page ${data.lastPage}/${data.totalPages} (${data.items.length} items saved)`);
-      return data;
-    }
-  } catch (e) {
-    console.warn('[WARN] Could not load checkpoint:', e.message);
-  }
-  return null;
+// --------------- Database ---------------
+
+let dbInitialized = false;
+
+async function initDb(sql) {
+  if (dbInitialized) return;
+  await sql`
+    CREATE TABLE IF NOT EXISTS inventory (
+      id INTEGER PRIMARY KEY,
+      esn VARCHAR(100),
+      status VARCHAR(50),
+      model VARCHAR(255),
+      manufacturer VARCHAR(100),
+      capacity VARCHAR(50),
+      color VARCHAR(100),
+      grade VARCHAR(50),
+      location_name VARCHAR(255),
+      warehouse_name VARCHAR(255),
+      cost_cents INTEGER,
+      sale_price_cents INTEGER,
+      wc_created_at TIMESTAMPTZ,
+      wc_updated_at TIMESTAMPTZ,
+      raw_data JSONB NOT NULL,
+      synced_at TIMESTAMPTZ DEFAULT NOW()
+    )`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_inv_status ON inventory(status)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_inv_esn ON inventory(esn)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_inv_wc_updated ON inventory(wc_updated_at)`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS sync_state (
+      id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+      last_delta_sync TIMESTAMPTZ,
+      last_full_reconciliation TIMESTAMPTZ,
+      delta_items_changed INTEGER DEFAULT 0,
+      full_total_items INTEGER DEFAULT 0,
+      full_items_removed INTEGER DEFAULT 0
+    )`;
+  await sql`INSERT INTO sync_state (id) VALUES (1) ON CONFLICT DO NOTHING`;
+  dbInitialized = true;
+  console.log('Database initialized.');
 }
 
-async function fetchPage(page = 1, retries = 0, status = 'Available') {
-  const url = `${API_BASE}?status=${encodeURIComponent(status)}&page=${page}`;
+async function getSyncState(sql) {
+  const rows = await sql`SELECT * FROM sync_state WHERE id = 1`;
+  return rows[0] || {};
+}
+
+async function upsertBatch(sql, items) {
+  if (items.length === 0) return;
+  const queries = items.map(item => {
+    const f = extractFields(item);
+    return sql`
+      INSERT INTO inventory (id, esn, status, model, manufacturer, capacity,
+        color, grade, location_name, warehouse_name, cost_cents,
+        sale_price_cents, wc_created_at, wc_updated_at, raw_data, synced_at)
+      VALUES (${f.id}, ${f.esn}, ${f.status}, ${f.model}, ${f.manufacturer},
+        ${f.capacity}, ${f.color}, ${f.grade}, ${f.location_name},
+        ${f.warehouse_name}, ${f.cost_cents}, ${f.sale_price_cents},
+        ${f.wc_created_at}, ${f.wc_updated_at}, ${f.raw_data}::jsonb, NOW())
+      ON CONFLICT (id) DO UPDATE SET
+        esn = EXCLUDED.esn,
+        status = EXCLUDED.status,
+        model = EXCLUDED.model,
+        manufacturer = EXCLUDED.manufacturer,
+        capacity = EXCLUDED.capacity,
+        color = EXCLUDED.color,
+        grade = EXCLUDED.grade,
+        location_name = EXCLUDED.location_name,
+        warehouse_name = EXCLUDED.warehouse_name,
+        cost_cents = EXCLUDED.cost_cents,
+        sale_price_cents = EXCLUDED.sale_price_cents,
+        wc_created_at = EXCLUDED.wc_created_at,
+        wc_updated_at = EXCLUDED.wc_updated_at,
+        raw_data = EXCLUDED.raw_data,
+        synced_at = NOW()
+    `;
+  });
+  await sql.transaction(queries);
+}
+
+// --------------- WholeCell API ---------------
+
+async function fetchPage(params, retries = 0) {
+  const qs = Object.entries(params)
+    .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+    .join('&');
+  const url = `${API_BASE}?${qs}`;
 
   try {
-    console.log(`  Fetching page ${page}...`);
     const response = await fetch(url, {
       headers: {
         Authorization: getAuthHeader(),
@@ -221,9 +181,9 @@ async function fetchPage(page = 1, retries = 0, status = 'Available') {
 
     if (response.status === 429) {
       const wait = 8000 * (retries + 1);
-      console.warn(`  [429] Rate limited on page ${page}, waiting ${wait/1000}s...`);
+      console.warn(`  [429] Rate limited, waiting ${wait / 1000}s...`);
       await sleep(wait);
-      return fetchPage(page, retries + 1);
+      return fetchPage(params, retries + 1);
     }
 
     if (!response.ok) {
@@ -232,57 +192,46 @@ async function fetchPage(page = 1, retries = 0, status = 'Available') {
 
     const text = await response.text();
     if (!text || !text.startsWith('{')) {
-      const preview = text.substring(0, 100);
-      console.warn(`  [WARN] Non-JSON response on page ${page}: "${preview}"`);
       if (retries < MAX_RETRIES) {
         await sleep(3000 * (retries + 1));
-        return fetchPage(page, retries + 1);
+        return fetchPage(params, retries + 1);
       }
-      return null; // skip this page
+      return null;
     }
 
     return JSON.parse(text);
   } catch (error) {
-    console.error(`  [ERROR] Page ${page} attempt ${retries + 1}: ${error.message}`);
+    console.error(`  [ERROR] attempt ${retries + 1}: ${error.message}`);
     if (retries < MAX_RETRIES) {
       await sleep(3000 * (retries + 1));
-      return fetchPage(page, retries + 1);
+      return fetchPage(params, retries + 1);
     }
-    console.error(`  [SKIP] Giving up on page ${page} after ${MAX_RETRIES} retries`);
+    console.error(`  [SKIP] Giving up after ${MAX_RETRIES} retries`);
     return null;
   }
 }
 
-async function syncInventory() {
-  const STATUSES_TO_FETCH = ['Available', 'Inbound'];
-  console.log('=== Wholecell Inventory Sync ===');
-  console.log(`Time: ${new Date().toISOString()}`);
-  console.log(`Mode: ${LOCAL_ONLY ? 'LOCAL ONLY' : 'Full (Blob + Local)'}`);
-  console.log(`Statuses: ${STATUSES_TO_FETCH.join(', ')}`);
-  console.log(`Locations: ALL (no filter)\n`);
-
-  if (!APP_ID || !APP_SECRET) throw new Error('Missing WHOLECELL_APP_ID or WHOLECELL_APP_SECRET');
-
-  const startTime = Date.now();
+async function fetchAllPages(extraParams = {}) {
   let allItems = [];
   let failedPages = 0;
-  let totalPagesAll = 0;
+  const startTime = Date.now();
 
   for (const status of STATUSES_TO_FETCH) {
+    const params = { status, ...extraParams, page: 1 };
     console.log(`\n--- Fetching status: ${status} ---`);
-    const firstPage = await fetchPage(1, 0, status);
+    const firstPage = await fetchPage(params);
     if (!firstPage || !firstPage.data) {
-      console.warn(`No data for status=${status}, skipping.`);
+      console.warn(`  No data for status=${status}, skipping.`);
       continue;
     }
+
     const totalPages = firstPage.pages || 1;
-    totalPagesAll += totalPages;
     allItems.push(...firstPage.data);
-    console.log(`${status}: ${totalPages} pages (~${totalPages * 100} items)`);
+    console.log(`  ${totalPages} pages (~${totalPages * 100} items)`);
 
     for (let page = 2; page <= totalPages; page++) {
       await sleep(RATE_LIMIT_MS);
-      const result = await fetchPage(page, 0, status);
+      const result = await fetchPage({ ...params, page });
       if (result && result.data) {
         allItems.push(...result.data);
       } else {
@@ -291,127 +240,157 @@ async function syncInventory() {
 
       if (page % 25 === 0 || page === totalPages) {
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(0);
-        console.log(`  Page ${page}/${totalPages} — ${allItems.length} total items — ${elapsed}s`);
+        console.log(`  Page ${page}/${totalPages} — ${allItems.length} total — ${elapsed}s`);
       }
     }
   }
 
-  const fetchDuration = ((Date.now() - startTime) / 1000).toFixed(0);
-  console.log(`\nFetch complete: ${allItems.length} items in ${fetchDuration}s (${failedPages} skipped pages)`);
-
-  // No location filtering — include everything
-  const filtered = allItems;
-  const locationBreakdown = {};
-  const statusBreakdown = {};
-  filtered.forEach(item => {
-    const loc = item.location?.name || 'No Location';
-    locationBreakdown[loc] = (locationBreakdown[loc] || 0) + 1;
-    const s = item.status || 'Unknown';
-    statusBreakdown[s] = (statusBreakdown[s] || 0) + 1;
-  });
-
-  console.log(`\nTotal: ${filtered.length} items`);
-  console.log('By Status:', statusBreakdown);
-  console.log('By Location:', locationBreakdown);
-
-  // Build payload
-  const payload = {
-    metadata: {
-      timestamp: new Date().toISOString(),
-      totalItems: filtered.length,
-      totalFetched: allItems.length,
-      totalPages: totalPagesAll,
-      failedPages,
-      fetchDurationSeconds: parseInt(fetchDuration),
-      statuses: ['Available', 'Inbound'],
-      statusBreakdown,
-      locationBreakdown,
-      source: 'wholecell-api',
-    },
-    count: filtered.length,
-    data: filtered,
-  };
-
-  // --- Incremental Diff ---
-  const previousFp = loadFingerprint();
-  let diff = null;
-  let hasChanges = true;
-
-  if (previousFp) {
-    diff = computeDiff(filtered, previousFp);
-    const s = diff.summary;
-    console.log(`\n=== Incremental Diff ===`);
-    console.log(`  Previous sync: ${previousFp.savedAt}`);
-    console.log(`  Added:     ${s.added}`);
-    console.log(`  Removed:   ${s.removed}`);
-    console.log(`  Changed:   ${s.changed}`);
-    console.log(`  Unchanged: ${s.unchanged}`);
-    console.log(`  Total:     ${s.totalBefore} → ${s.totalAfter}`);
-
-    saveDiff(diff);
-    hasChanges = s.added > 0 || s.removed > 0 || s.changed > 0;
-
-    if (!hasChanges) {
-      console.log('\n✓ No changes detected since last sync.');
-    }
-
-    // If --diff flag, just show the diff and exit (don't save/upload)
-    if (DIFF_ONLY) {
-      console.log('\n[--diff mode] Exiting after diff. No files written.');
-      return { success: true, items: filtered.length, diff: diff.summary, hasChanges };
-    }
-  } else {
-    console.log('\nNo previous fingerprint found — this is the first tracked sync.');
-  }
-
-  // Save local JSON
-  const dataDir = path.dirname(LOCAL_OUTPUT);
-  if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-  fs.writeFileSync(LOCAL_OUTPUT, JSON.stringify(payload));
-  const sizeMB = (fs.statSync(LOCAL_OUTPUT).size / (1024 * 1024)).toFixed(1);
-  console.log(`\nSaved: ${LOCAL_OUTPUT} (${sizeMB} MB)`);
-
-  // Save new fingerprint
-  saveFingerprint(filtered);
-
-  // Clean checkpoint
-  try { fs.unlinkSync(CHECKPOINT_FILE); } catch {}
-
-  // Upload to Vercel Blob (skip if no changes detected)
-  if (!LOCAL_ONLY && process.env.BLOB_READ_WRITE_TOKEN) {
-    if (!hasChanges) {
-      console.log('\nSkipping Blob upload — inventory unchanged since last sync.');
-    } else {
-      try {
-        const { put, list, del } = require('@vercel/blob');
-        console.log('Uploading to Vercel Blob Storage...');
-        const jsonStr = JSON.stringify(payload);
-        const blob = await put('inventory/latest.json', jsonStr, {
-          access: 'public',
-          contentType: 'application/json',
-          addRandomSuffix: false,
-        });
-        console.log(`Uploaded: ${blob.url}`);
-        const { blobs } = await list({ prefix: 'inventory/' });
-        for (const old of blobs.filter(b => b.pathname !== 'inventory/latest.json')) {
-          await del(old.url);
-        }
-      } catch (err) {
-        console.error('Blob upload failed:', err.message);
-      }
-    }
-  }
-
-  console.log('\n=== Sync Complete ===');
-  console.log(`Items: ${filtered.length}`);
-  console.log(`Statuses: ${Object.entries(statusBreakdown).map(([k,v])=>`${k}: ${v}`).join(', ')}`);
-  console.log(`Locations: ${Object.entries(locationBreakdown).map(([k,v])=>`${k}: ${v}`).join(', ')}`);
-  console.log(`Duration: ${fetchDuration}s | Failed pages: ${failedPages}`);
-  if (diff) console.log(`Changes: +${diff.summary.added} / -${diff.summary.removed} / ~${diff.summary.changed}`);
-
-  return { success: true, items: filtered.length, duration: parseInt(fetchDuration), failedPages, diff: diff?.summary, hasChanges };
+  return { items: allItems, failedPages };
 }
 
-syncInventory()
-  .then(r => { console.log('\nSync succeeded:', r); process.exit(0); })
-  .catch(e => { console.error('\nSync FAILED:', e.message, e.stack); process.exit(1); });
+// --------------- Delta Sync ---------------
+
+async function deltaSync(sql, since) {
+  console.log(`\n=== Delta Sync (since ${since}) ===`);
+  const sinceISO = new Date(since).toISOString();
+
+  let allItems = [];
+  let failedPages = 0;
+
+  for (const status of STATUSES_TO_FETCH) {
+    const params = { status, updated_at_gt: sinceISO, page: 1 };
+    console.log(`  Checking ${status} updated since ${sinceISO}...`);
+    const firstPage = await fetchPage(params);
+    if (!firstPage || !firstPage.data) {
+      console.log(`  No changes for status=${status}.`);
+      continue;
+    }
+
+    const totalPages = firstPage.pages || 1;
+    allItems.push(...firstPage.data);
+    console.log(`  ${totalPages} page(s) of changes (~${firstPage.data.length} on page 1)`);
+
+    for (let page = 2; page <= totalPages; page++) {
+      await sleep(RATE_LIMIT_MS);
+      const result = await fetchPage({ ...params, page });
+      if (result && result.data) {
+        allItems.push(...result.data);
+      } else {
+        failedPages++;
+      }
+    }
+  }
+
+  if (allItems.length === 0) {
+    console.log('\nNo changes detected. Updating sync timestamp.');
+    await sql`UPDATE sync_state SET last_delta_sync = NOW(), delta_items_changed = 0 WHERE id = 1`;
+    return { mode: 'delta', itemsChanged: 0, failedPages: 0 };
+  }
+
+  console.log(`\nUpserting ${allItems.length} changed items...`);
+  for (let i = 0; i < allItems.length; i += BATCH_SIZE) {
+    const batch = allItems.slice(i, i + BATCH_SIZE);
+    await upsertBatch(sql, batch);
+    if (allItems.length > BATCH_SIZE) {
+      console.log(`  Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(allItems.length / BATCH_SIZE)} done`);
+    }
+  }
+
+  await sql`UPDATE sync_state SET last_delta_sync = NOW(), delta_items_changed = ${allItems.length} WHERE id = 1`;
+  console.log(`Delta sync complete: ${allItems.length} items upserted.`);
+  return { mode: 'delta', itemsChanged: allItems.length, failedPages };
+}
+
+// --------------- Full Reconciliation ---------------
+
+async function fullReconciliation(sql) {
+  console.log('\n=== Full Reconciliation ===');
+  const reconciliationStart = new Date().toISOString();
+
+  const { items, failedPages } = await fetchAllPages();
+  console.log(`\nFetched ${items.length} total items (${failedPages} failed pages).`);
+
+  if (items.length === 0) {
+    console.warn('No items fetched — aborting reconciliation to avoid data loss.');
+    return { mode: 'full', totalItems: 0, removed: 0, failedPages };
+  }
+
+  const totalBatches = Math.ceil(items.length / BATCH_SIZE);
+  const upsertStart = Date.now();
+  console.log(`Upserting ${items.length} items in ${totalBatches} batches of ${BATCH_SIZE}...`);
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const batch = items.slice(i, i + BATCH_SIZE);
+    await upsertBatch(sql, batch);
+    const batchNum = Math.floor(i / BATCH_SIZE) + 1;
+    const elapsed = ((Date.now() - upsertStart) / 1000).toFixed(0);
+    const pct = Math.round((batchNum / totalBatches) * 100);
+    if (batchNum % 5 === 0 || batchNum === totalBatches) {
+      console.log(`  Batch ${batchNum}/${totalBatches} (${pct}%) — ${elapsed}s elapsed`);
+    }
+  }
+
+  const stale = await sql`
+    DELETE FROM inventory WHERE synced_at < ${reconciliationStart}::timestamptz
+    RETURNING id
+  `;
+  const removedCount = stale.length;
+  if (removedCount > 0) {
+    console.log(`Removed ${removedCount} stale items not found in WholeCell.`);
+  }
+
+  await sql`
+    UPDATE sync_state SET
+      last_delta_sync = NOW(),
+      last_full_reconciliation = NOW(),
+      delta_items_changed = ${items.length},
+      full_total_items = ${items.length},
+      full_items_removed = ${removedCount}
+    WHERE id = 1
+  `;
+
+  console.log(`Full reconciliation complete: ${items.length} items, ${removedCount} removed.`);
+  return { mode: 'full', totalItems: items.length, removed: removedCount, failedPages };
+}
+
+// --------------- Main ---------------
+
+async function main() {
+  console.log('=== WholeCell Inventory Sync ===');
+  console.log(`Time: ${new Date().toISOString()}`);
+
+  if (!APP_ID || !APP_SECRET) throw new Error('Missing WHOLECELL_APP_ID or WHOLECELL_APP_SECRET');
+  if (!DATABASE_URL) throw new Error('Missing DATABASE_URL');
+
+  const sql = neon(DATABASE_URL);
+  await initDb(sql);
+
+  const state = await getSyncState(sql);
+  console.log(`Last delta sync: ${state.last_delta_sync || 'never'}`);
+  console.log(`Last full reconciliation: ${state.last_full_reconciliation || 'never'}`);
+
+  const needsFull = FORCE_FULL
+    || !state.last_full_reconciliation
+    || (Date.now() - new Date(state.last_full_reconciliation).getTime()) > FULL_RECONCILIATION_INTERVAL_HOURS * 3600000;
+
+  if (needsFull) {
+    const reason = FORCE_FULL ? '--full flag' :
+      !state.last_full_reconciliation ? 'first run' :
+      `last full reconciliation > ${FULL_RECONCILIATION_INTERVAL_HOURS}h ago`;
+    console.log(`\nTriggering full reconciliation (${reason}).`);
+    return await fullReconciliation(sql);
+  }
+
+  return await deltaSync(sql, state.last_delta_sync);
+}
+
+const startTime = Date.now();
+main()
+  .then(result => {
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`\nSync succeeded in ${duration}s:`, result);
+    process.exit(0);
+  })
+  .catch(err => {
+    console.error('\nSync FAILED:', err.message, err.stack);
+    process.exit(1);
+  });

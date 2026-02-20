@@ -1829,58 +1829,13 @@
     /* ══════════════════════════════════════════════════════════
        DATA LOADING
        ══════════════════════════════════════════════════════════ */
-    const PROXY_URL = 'http://localhost:5001';
-
-    async function fetchByLocation(location, onProgress, startPage, totalEstimate, status) {
-        const allItems = [];
-        const st = status || 'Available';
-        const firstUrl = `${PROXY_URL}/api/inventory?status=${encodeURIComponent(st)}&location=${encodeURIComponent(location)}&page=1`;
-        const resp = await fetch(firstUrl);
-        const first = await resp.json();
-        if (!first.data) return allItems;
-        const totalPages = first.pages || 1;
-        allItems.push(...first.data);
-        if (onProgress) onProgress(startPage + 1, totalEstimate || totalPages);
-        for (let p = 2; p <= totalPages; p++) {
-            const url = `${PROXY_URL}/api/inventory?status=${encodeURIComponent(st)}&location=${encodeURIComponent(location)}&page=${p}`;
-            try { const r = await fetch(url); const d = await r.json(); if (d.data) allItems.push(...d.data); }
-            catch (e) { console.warn(`Page ${p} failed for ${location}:`, e.message); }
-            if (onProgress) onProgress(startPage + p, totalEstimate);
-            if (p < totalPages) await new Promise(r => setTimeout(r, 500));
-        }
-        return allItems;
-    }
-
     async function fetchPricingInventory(onProgress) {
-        // Fetch all locations for Available status + Inbound status
-        const fetchTargets = [
-            { status: 'Available', location: 'Ready Room' },
-            { status: 'Available', location: 'Processing' },
-            { status: 'Available', location: 'Receiving' },
-            { status: 'Available', location: 'Damaged' },
-            { status: 'Available', location: 'Locked' },
-            { status: 'Inbound', location: 'Inbound' },
-        ];
-        // Peek all to get total pages
-        const peeks = await Promise.all(fetchTargets.map(t =>
-            fetch(`${PROXY_URL}/api/inventory?status=${encodeURIComponent(t.status)}&location=${encodeURIComponent(t.location)}&page=1`)
-                .then(r => r.json()).catch(() => ({ pages: 0, data: [] }))
-        ));
-        const pageCounts = peeks.map(p => p.pages || 0);
-        const totalPages = pageCounts.reduce((a, b) => a + b, 0);
-        if (onProgress) onProgress(0, totalPages);
-
-        let allItems = [];
-        let pageOffset = 0;
-        for (let i = 0; i < fetchTargets.length; i++) {
-            if (pageCounts[i] > 0) {
-                const items = await fetchByLocation(fetchTargets[i].location, onProgress, pageOffset, totalPages,
-                    fetchTargets[i].status);
-                allItems.push(...items);
-            }
-            pageOffset += pageCounts[i];
-        }
-        return allItems;
+        if (onProgress) onProgress(0, 1);
+        const response = await fetch('/api/inventory');
+        if (!response.ok) throw new Error(`API returned ${response.status}`);
+        const rawData = await response.json();
+        if (onProgress) onProgress(1, 1);
+        return rawData.data || [];
     }
 
     const PRICING_CACHE_KEY = 'pricing_manager_cache';

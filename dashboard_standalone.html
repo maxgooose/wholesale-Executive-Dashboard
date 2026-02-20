@@ -684,19 +684,41 @@
 
         async function loadData() {
             try {
-                // Load from local available-inventory.json snapshot
-                const response = await fetch('data/available-inventory.json');
-                if (response.ok) {
-                    const rawData = await response.json();
-                    if (rawData.data && Array.isArray(rawData.data) && rawData.data.length > 0) {
-                        const transformedItems = WholecellTransformer.transformAll(rawData.data);
-                        inventoryData = transformedItems;
-                        document.getElementById('lastUpdated').textContent = `${rawData.count || rawData.data.length} items loaded`;
-                        updateDashboard();
-                        return;
+                // Primary: Load from server API (backed by Neon PostgreSQL)
+                try {
+                    const response = await fetch('/api/inventory');
+                    if (response.ok) {
+                        const rawData = await response.json();
+                        if (rawData.data && Array.isArray(rawData.data) && rawData.data.length > 0) {
+                            const transformedItems = WholecellTransformer.transformAll(rawData.data);
+                            inventoryData = transformedItems;
+                            document.getElementById('lastUpdated').textContent = `${rawData.count || rawData.data.length} items loaded`;
+                            updateDashboard();
+                            return;
+                        }
                     }
+                } catch (e) {
+                    console.warn('API unavailable, trying static fallback...', e);
                 }
-                console.error('Failed to load inventory data');
+
+                // Fallback: static JSON file
+                try {
+                    const fallback = await fetch('data/available-inventory.json');
+                    if (fallback.ok) {
+                        const rawData = await fallback.json();
+                        if (rawData.data && Array.isArray(rawData.data) && rawData.data.length > 0) {
+                            const transformedItems = WholecellTransformer.transformAll(rawData.data);
+                            inventoryData = transformedItems;
+                            document.getElementById('lastUpdated').textContent = `${rawData.count || rawData.data.length} items (fallback)`;
+                            updateDashboard();
+                            return;
+                        }
+                    }
+                } catch (e2) {
+                    console.warn('Static fallback also unavailable:', e2);
+                }
+
+                console.error('Failed to load inventory data from any source');
                 inventoryData = [];
                 updateDashboard();
             } catch (error) {

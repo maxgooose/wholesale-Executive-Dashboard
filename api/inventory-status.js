@@ -1,35 +1,33 @@
-import { list } from '@vercel/blob';
+import { neon } from '@neondatabase/serverless';
+
+export const config = {
+  maxDuration: 10,
+};
 
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
+
   try {
-    const { blobs } = await list({ prefix: 'inventory/' });
+    const sql = neon(process.env.DATABASE_URL);
 
-    if (!blobs || blobs.length === 0) {
-      return res.status(200).json({
-        status: 'no_data',
-        message: 'No inventory cache exists yet. Waiting for first sync.',
-        lastSync: null,
-        itemCount: 0,
-      });
-    }
+    const state = await sql`SELECT * FROM sync_state WHERE id = 1`;
+    const count = await sql`SELECT COUNT(*)::int AS total FROM inventory`;
 
-    const sorted = blobs.sort(
-      (a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt)
-    );
-    const latest = sorted[0];
-
-    const ageMs = Date.now() - new Date(latest.uploadedAt).getTime();
-    const ageMinutes = Math.round(ageMs / 60000);
+    const lastSync = state[0]?.last_delta_sync || null;
+    const ageMs = lastSync ? Date.now() - new Date(lastSync).getTime() : null;
 
     return res.status(200).json({
-      status: ageMinutes > 300 ? 'stale' : 'ok',
-      lastSync: latest.uploadedAt,
-      ageMinutes,
-      blobSize: latest.size,
-      blobUrl: latest.pathname,
-      totalBlobs: blobs.length,
+      lastDeltaSync: lastSync,
+      lastFullReconciliation: state[0]?.last_full_reconciliation || null,
+      totalItems: count[0]?.total || 0,
+      lastDeltaChanges: state[0]?.delta_items_changed || 0,
+      lastFullRemoved: state[0]?.full_items_removed || 0,
+      ageMinutes: ageMs != null ? Math.round(ageMs / 60000) : null,
+      status: !lastSync ? 'no_data' : (ageMs > 20 * 60000 ? 'stale' : 'ok'),
     });
   } catch (error) {
+    console.error('Inventory status error:', error);
     return res.status(500).json({
       status: 'error',
       message: error.message,

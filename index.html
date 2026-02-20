@@ -727,9 +727,9 @@
 
         async function loadData() {
             try {
-                // Priority 1: Load from local available-inventory.json snapshot (15K+ items)
+                // Primary: Load from server API (backed by Neon PostgreSQL)
                 try {
-                    const response = await fetch('data/available-inventory.json');
+                    const response = await fetch('/api/inventory');
                     if (response.ok) {
                         const rawData = await response.json();
                         if (rawData.data && Array.isArray(rawData.data) && rawData.data.length > 0) {
@@ -743,11 +743,29 @@
                         }
                     }
                 } catch (e) {
-                    console.warn('Could not load local snapshot, trying backup...', e);
+                    console.warn('API unavailable, trying static fallback...', e);
                 }
 
-                // No additional fallbacks — data/available-inventory.json is the single source
-                console.error('Failed to load inventory data from data/available-inventory.json');
+                // Fallback: static JSON file (during migration or if API is down)
+                try {
+                    const fallback = await fetch('data/available-inventory.json');
+                    if (fallback.ok) {
+                        const rawData = await fallback.json();
+                        if (rawData.data && Array.isArray(rawData.data) && rawData.data.length > 0) {
+                            const transformedItems = WholecellTransformer.transformAll(rawData.data);
+                            allInventoryData = transformedItems;
+                            inventoryData = transformedItems;
+                            document.getElementById('lastUpdated').textContent = `${rawData.count || rawData.data.length} items (fallback)`;
+                            populateFilters();
+                            updateDashboard();
+                            return;
+                        }
+                    }
+                } catch (e2) {
+                    console.warn('Static fallback also unavailable:', e2);
+                }
+
+                console.error('Failed to load inventory data from any source');
                 allInventoryData = [];
                 inventoryData = [];
                 updateDashboard();
@@ -1479,18 +1497,18 @@
         let countdownInterval = null;
         let secondsUntilRefresh = 300; // 5 minutes
         
+        let lastKnownSync = null;
+
         function startAutoRefresh() {
-            // Clear any existing intervals
             if (refreshInterval) clearInterval(refreshInterval);
             if (countdownInterval) clearInterval(countdownInterval);
-            
-            secondsUntilRefresh = 300;
-            
-            // Update countdown every second
+
+            secondsUntilRefresh = 60;
+
             countdownInterval = setInterval(() => {
                 secondsUntilRefresh--;
-                if (secondsUntilRefresh < 0) secondsUntilRefresh = 300;
-                
+                if (secondsUntilRefresh < 0) secondsUntilRefresh = 60;
+
                 const mins = Math.floor(secondsUntilRefresh / 60);
                 const secs = secondsUntilRefresh % 60;
                 const countdownEl = document.getElementById('refreshCountdown');
@@ -1498,27 +1516,37 @@
                     countdownEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
                 }
             }, 1000);
-            
-            // Refresh data every 5 minutes
-            refreshInterval = setInterval(() => {
-                secondsUntilRefresh = 300;
-                loadData();
-                
-                // Flash the sync indicator
-                const syncDot = document.getElementById('syncDot');
-                const syncText = document.getElementById('syncText');
-                if (syncDot && syncText) {
-                    syncDot.classList.remove('online');
-                    syncDot.classList.add('syncing');
-                    syncText.textContent = 'Refreshing...';
-                    
-                    setTimeout(() => {
-                        syncDot.classList.remove('syncing');
-                        syncDot.classList.add('online');
-                        syncText.textContent = 'Live';
-                    }, 2000);
+
+            // Poll server for freshness every 60 seconds
+            refreshInterval = setInterval(async () => {
+                secondsUntilRefresh = 60;
+                try {
+                    const res = await fetch('/api/inventory-status');
+                    if (!res.ok) return;
+                    const info = await res.json();
+
+                    if (lastKnownSync && info.lastDeltaSync !== lastKnownSync) {
+                        const syncDot = document.getElementById('syncDot');
+                        const syncText = document.getElementById('syncText');
+                        if (syncDot && syncText) {
+                            syncDot.classList.remove('online');
+                            syncDot.classList.add('syncing');
+                            syncText.textContent = 'Refreshing...';
+                        }
+
+                        await loadData();
+
+                        if (syncDot && syncText) {
+                            syncDot.classList.remove('syncing');
+                            syncDot.classList.add('online');
+                            syncText.textContent = 'Live';
+                        }
+                    }
+                    lastKnownSync = info.lastDeltaSync;
+                } catch (e) {
+                    // Silent — next poll will retry
                 }
-            }, 300000); // 5 minutes in ms
+            }, 60000);
         }
 
         // ============================================

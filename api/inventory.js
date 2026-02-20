@@ -1,48 +1,44 @@
-import { list, head } from '@vercel/blob';
+import { neon } from '@neondatabase/serverless';
 
 export const config = {
   maxDuration: 10,
 };
 
 export default async function handler(req, res) {
-  // Only allow GET
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
   try {
-    // Look for the cached inventory blob
-    const { blobs } = await list({ prefix: 'inventory/' });
+    const sql = neon(process.env.DATABASE_URL);
+    const { status } = req.query;
 
-    if (!blobs || blobs.length === 0) {
-      return res.status(503).json({
-        error: 'No cached inventory data available yet. Sync has not run.',
-        hint: 'Trigger the GitHub Action or wait for the next cron run.',
-      });
-    }
+    const rows = status
+      ? await sql`SELECT raw_data FROM inventory WHERE status = ${status}`
+      : await sql`SELECT raw_data FROM inventory`;
 
-    // Get the most recent blob (sorted by uploadedAt desc)
-    const sorted = blobs.sort(
-      (a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt)
-    );
-    const latest = sorted[0];
+    const items = rows.map(r => r.raw_data);
 
-    // Fetch the blob content
-    const response = await fetch(latest.url);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch blob: ${response.status}`);
-    }
+    const syncState = await sql`SELECT last_delta_sync FROM sync_state WHERE id = 1`;
+    const lastSync = syncState[0]?.last_delta_sync || null;
 
-    const data = await response.json();
+    res.setHeader('X-Inventory-Updated', lastSync || 'never');
+    res.setHeader('X-Inventory-Count', String(items.length));
 
-    // Return with metadata
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('X-Inventory-Updated', latest.uploadedAt);
-    res.setHeader('X-Inventory-Size', String(data.items?.length || 0));
-
-    return res.status(200).json(data);
+    return res.status(200).json({
+      metadata: {
+        timestamp: new Date().toISOString(),
+        totalItems: items.length,
+        lastSync,
+        source: 'neon-postgresql',
+      },
+      count: items.length,
+      data: items,
+    });
   } catch (error) {
-    console.error('Error serving inventory:', error);
+    console.error('Inventory API error:', error);
     return res.status(500).json({
       error: 'Failed to load inventory data',
       message: error.message,
