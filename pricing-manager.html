@@ -1637,7 +1637,6 @@
                     <th style="text-align:center;">Qty</th>
                     <th style="text-align:center;">Price</th>
                     <th style="text-align:center;">Avg Cost</th>
-                    <th style="text-align:right;">Value</th>
                     <th style="text-align:center;width:36px;" title="Status"></th>
                     <th style="text-align:center;width:36px;" title="Deal"></th>
                     <th style="text-align:center;width:36px;" title="History"></th>
@@ -2420,7 +2419,6 @@
                     </div>
                 </td>
                 <td style="text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);">${g.costCount > 0 ? '$' + Math.round(g.totalCost / g.costCount).toLocaleString() : '—'}</td>
-                <td class="cell-value ${value === 0 ? 'no-value' : ''}">${value > 0 ? '$' + value.toLocaleString() : '—'}</td>
                 <td style="text-align:center"><span class="status-dot ${status}" title="${status}"></span></td>
                 <td style="text-align:center"><button class="add-deal-btn ${inDeal ? 'in-deal' : ''}" onclick="toggleDealItem('${escJs(key)}')" title="${inDeal ? 'Remove from deal' : 'Add to deal'}">${inDeal ? '✓' : '+'}</button></td>
                 <td style="text-align:center"><button class="hist-btn" onclick="showPriceHistory('${escJs(g.model)}','${escJs(g.storage)}')" title="Price history">📊</button></td>
@@ -2481,9 +2479,6 @@
             setTimeout(() => input.classList.remove('just-saved'), 600);
             const row = input.closest('tr');
             if (row) {
-                const vc = row.querySelector('.cell-value');
-                const val = getRowValue(group);
-                if (vc) { vc.textContent = val > 0 ? '$' + val.toLocaleString() : '—'; vc.className = 'cell-value ' + (val === 0 ? 'no-value' : ''); }
                 const sd = row.querySelector('.status-dot');
                 if (sd) { const s = getRowStatus(group); sd.className = 'status-dot ' + s; sd.title = s; }
             }
