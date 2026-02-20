@@ -5,6 +5,13 @@ let initialized = false;
 export async function getDb() {
   const sql = neon(process.env.DATABASE_URL);
   if (!initialized) {
+    const cols = await sql`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'inventory' AND column_name = 'wc_updated_at'
+    `;
+    if (cols.length === 0) {
+      await sql`DROP TABLE IF EXISTS inventory`;
+    }
     await sql`
       CREATE TABLE IF NOT EXISTS inventory (
         id INTEGER PRIMARY KEY,

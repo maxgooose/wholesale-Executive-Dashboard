@@ -87,6 +87,18 @@ let dbInitialized = false;
 
 async function initDb(sql) {
   if (dbInitialized) return;
+
+  // Drop the old inventory table (incompatible schema from test-delta-sync.js)
+  // and recreate with our full schema. Safe because DB had no production data yet.
+  const cols = await sql`
+    SELECT column_name FROM information_schema.columns
+    WHERE table_name = 'inventory' AND column_name = 'wc_updated_at'
+  `;
+  if (cols.length === 0) {
+    console.log('Old inventory table detected — dropping and recreating with new schema...');
+    await sql`DROP TABLE IF EXISTS inventory`;
+  }
+
   await sql`
     CREATE TABLE IF NOT EXISTS inventory (
       id INTEGER PRIMARY KEY,
