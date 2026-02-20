@@ -626,6 +626,61 @@
         .grade-tag.grade-def { background: var(--grade-def-bg); color: var(--grade-def-text); }
         .grade-tag.grade-raw { background: var(--grade-raw-bg); color: var(--grade-raw-text); }
 
+        /* Expandable breakdown styles */
+        .expand-icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.2s ease;
+            color: var(--text-secondary);
+            font-size: 10px;
+            line-height: 16px;
+            text-align: center;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        .expand-icon:hover {
+            color: var(--text-primary);
+        }
+        .expand-icon.expanded {
+            transform: rotate(90deg);
+        }
+        .row-model {
+            background: var(--bg-primary);
+        }
+        .row-grade {
+            background: var(--bg-subtle);
+        }
+        .row-grade td:nth-child(2) {
+            padding-left: 2rem;
+        }
+        .row-color {
+            background: var(--bg-subtle);
+        }
+        .row-color td:nth-child(2) {
+            padding-left: 4rem;
+        }
+        .row-grade td,
+        .row-color td {
+            border-top: 1px solid var(--border-subtle);
+        }
+        .row-grade:hover,
+        .row-color:hover {
+            background: var(--bg-hover);
+        }
+        .row-grade .cell-model,
+        .row-color .cell-model {
+            font-weight: 500;
+            font-size: 12px;
+        }
+        .row-grade .cell-model {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
         .cell-total {
             font-family: var(--font-mono);
             font-weight: 700;
@@ -1560,6 +1615,14 @@
                 </div>
             </div>
             <div class="filter-section">
+                <label>Battery Health (%)</label>
+                <div class="range-row">
+                    <input type="number" id="batteryMin" placeholder="Min" min="0" max="100" oninput="onFilterChange()">
+                    <span class="sep">&mdash;</span>
+                    <input type="number" id="batteryMax" placeholder="Max" min="0" max="100" oninput="onFilterChange()">
+                </div>
+            </div>
+            <div class="filter-section">
                 <label>Quick Presets</label>
                 <select id="presetFilter" onchange="applyPreset()">
                     <option value="">Choose a preset...</option>
@@ -1929,11 +1992,15 @@
     let refreshTimer = null;
     let pendingImport = null;
     const STALE_DAYS = 7;
+    let expandedModels = new Set();
+    let expandedGrades = new Map();
     const REFRESH_INTERVAL = 15 * 60 * 1000;
 
     let activeBrands = new Set();
     let activeStorages = new Set();
     let activeLocations = new Set();
+    let expandedModels = new Set();
+    let expandedGrades = new Map();
     let allBrands = {};
     let allStorages = {};
 
@@ -2109,7 +2176,8 @@
                     brand: bd.brand, brandType: bd.type,
                     locations: locs,
                     gradesByLocation: {},
-                    totalCost: 0, costCount: 0
+                    totalCost: 0, costCount: 0,
+                    batteryHealthTotal: 0, batteryHealthCount: 0
                 });
             }
             const g = map.get(key);
@@ -2126,6 +2194,11 @@
             }
             const itemCost = item.cost || (item.total_price_paid ? item.total_price_paid / 100 : 0);
             if (itemCost > 0) { g.totalCost += itemCost; g.costCount++; }
+            const batteryHealth = item['BATTERY HEALTH'] ? parseInt(item['BATTERY HEALTH']) : null;
+            if (batteryHealth !== null && !isNaN(batteryHealth)) {
+                g.batteryHealthTotal += batteryHealth;
+                g.batteryHealthCount++;
+            }
             g.total++;
             if (g.locations.hasOwnProperty(location)) g.locations[location]++;
         });
@@ -2181,7 +2254,8 @@
         const hasFilters = activeBrands.size > 0 || activeStorages.size > 0 || activeLocations.size > 0 ||
             document.getElementById('statusFilter').value !== 'all' ||
             document.getElementById('priceMin').value || document.getElementById('priceMax').value ||
-            document.getElementById('qtyMin').value || document.getElementById('qtyMax').value;
+            document.getElementById('qtyMin').value || document.getElementById('qtyMax').value ||
+            document.getElementById('batteryMin').value || document.getElementById('batteryMax').value;
         btn.classList.toggle('has-filters', hasFilters);
     }
 
@@ -2258,6 +2332,8 @@
         document.getElementById('priceMax').value = '';
         document.getElementById('qtyMin').value = '';
         document.getElementById('qtyMax').value = '';
+        document.getElementById('batteryMin').value = '';
+        document.getElementById('batteryMax').value = '';
         document.getElementById('searchInput').value = '';
         document.getElementById('statusFilter').value = 'all';
 
@@ -2292,6 +2368,8 @@
         const priceMax = parseFloat(document.getElementById('priceMax').value) || Infinity;
         const qtyMin = parseInt(document.getElementById('qtyMin').value) || 0;
         const qtyMax = parseInt(document.getElementById('qtyMax').value) || Infinity;
+        const batteryMin = parseFloat(document.getElementById('batteryMin').value) || 0;
+        const batteryMax = parseFloat(document.getElementById('batteryMax').value) || Infinity;
 
         filteredGroups = inventoryGroups.filter(g => {
             if (search && !g.model.toLowerCase().includes(search) && !g.storage.toLowerCase().includes(search)) return false;
@@ -2311,6 +2389,11 @@
             if (priceMin > 0 && g.price <= 0) return false;
             const displayTotal = getDisplayTotal(g);
             if (displayTotal < qtyMin || displayTotal > qtyMax) return false;
+            if (batteryMin > 0 || batteryMax < Infinity) {
+                const avgBattery = g.batteryHealthCount > 0 ? g.batteryHealthTotal / g.batteryHealthCount : null;
+                if (avgBattery === null) return false; // Exclude groups with no battery data if filter is set
+                if (avgBattery < batteryMin || avgBattery > batteryMax) return false;
+            }
             return true;
         });
 
@@ -2346,6 +2429,9 @@
         const qMin = document.getElementById('qtyMin').value;
         const qMax = document.getElementById('qtyMax').value;
         if (qMin || qMax) tags.push({ label: `Qty ${qMin || '0'} – ${qMax || '∞'}`, type: 'qty' });
+        const bMin = document.getElementById('batteryMin').value;
+        const bMax = document.getElementById('batteryMax').value;
+        if (bMin || bMax) tags.push({ label: `Battery ${bMin || '0'}% – ${bMax || '100'}%`, type: 'battery' });
         const search = document.getElementById('searchInput').value.trim();
         if (search) tags.push({ label: `"${search}"`, type: 'search' });
         const sf = document.getElementById('statusFilter').value;
@@ -2368,6 +2454,7 @@
         else if (type === 'location') { activeLocations.delete(value); buildFilterChips(); }
         else if (type === 'price') { document.getElementById('priceMin').value = ''; document.getElementById('priceMax').value = ''; }
         else if (type === 'qty') { document.getElementById('qtyMin').value = ''; document.getElementById('qtyMax').value = ''; }
+        else if (type === 'battery') { document.getElementById('batteryMin').value = ''; document.getElementById('batteryMax').value = ''; }
         else if (type === 'search') { document.getElementById('searchInput').value = ''; }
         else if (type === 'status') { document.getElementById('statusFilter').value = 'all'; }
         onFilterChange();
@@ -2406,6 +2493,41 @@
         return merged;
     }
 
+    function toggleModelExpand(key) {
+        if (expandedModels.has(key)) {
+            expandedModels.delete(key);
+            // Clear all grade expansions for this model
+            const gradeKeysToDelete = [];
+            expandedGrades.forEach((value, gradeKey) => {
+                if (gradeKey.startsWith(key + '|')) {
+                    gradeKeysToDelete.push(gradeKey);
+                }
+            });
+            gradeKeysToDelete.forEach(k => expandedGrades.delete(k));
+        } else {
+            expandedModels.add(key);
+        }
+        renderTable();
+    }
+
+    function toggleGradeExpand(key, grade) {
+        const gradeKey = `${key}|${grade}`;
+        if (expandedGrades.has(gradeKey)) {
+            expandedGrades.delete(gradeKey);
+        } else {
+            expandedGrades.set(gradeKey, true);
+        }
+        renderTable();
+    }
+
+    function isModelExpanded(key) {
+        return expandedModels.has(key);
+    }
+
+    function isGradeExpanded(key, grade) {
+        return expandedGrades.has(`${key}|${grade}`);
+    }
+
     /* ══════════════════════════════════════════════════════════
        RENDERING — clean table rows
        ══════════════════════════════════════════════════════════ */
@@ -2413,11 +2535,14 @@
         const tbody = document.getElementById('tableBody');
         const gradeClassMap = { 'A': 'grade-a', 'B': 'grade-b', 'C (AMZ)': 'grade-amz', 'C': 'grade-c', 'D': 'grade-d', 'Damaged': 'grade-dmg', 'Defective': 'grade-def', 'RAW': 'grade-raw' };
         const gradeOrder = ['A', 'B', 'C (AMZ)', 'C', 'D', 'Damaged', 'Defective', 'RAW'];
-        tbody.innerHTML = filteredGroups.map((g, idx) => {
+        const rows = [];
+
+        filteredGroups.forEach((g, idx) => {
             const key = g.key, status = getRowStatus(g), value = getRowValue(g), sel = selectedRows.has(key);
             const bc = brandClass(g.brand);
             const inDeal = dealItems.has(key);
             const displayGrades = getDisplayGrades(g);
+            const isExpanded = isModelExpanded(key);
 
             const grades = gradeOrder.filter(grade => (displayGrades[grade] || 0) > 0).map(grade => {
                 const qty = displayGrades[grade] || 0;
@@ -2426,10 +2551,12 @@
                 return `<span class="grade-tag ${cls}"><span class="g-label">${label}</span><span class="g-count">${qty}</span></span>`;
             }).join('');
 
-            return `
-            <tr class="${sel ? 'selected' : ''} ${bc}" data-key="${escHtml(key)}">
+            // Model row
+            rows.push(`
+            <tr class="row-model ${sel ? 'selected' : ''} ${bc}" data-key="${escHtml(key)}">
                 <td><input type="checkbox" class="row-checkbox" ${sel ? 'checked' : ''} onchange="toggleRow('${escJs(key)}')"></td>
                 <td>
+                    <span class="expand-icon ${isExpanded ? 'expanded' : ''}" onclick="toggleModelExpand('${escJs(key)}')">▶</span>
                     <div class="cell-model" title="${escHtml(g.model)}">${escHtml(g.model)}</div>
                     <div class="cell-model-sub">${escHtml(g.brand)}</div>
                 </td>
@@ -2448,8 +2575,68 @@
                 <td style="text-align:center"><span class="status-dot ${status}" title="${status}"></span></td>
                 <td style="text-align:center"><button class="add-deal-btn ${inDeal ? 'in-deal' : ''}" onclick="toggleDealItem('${escJs(key)}')" title="${inDeal ? 'Remove from deal' : 'Add to deal'}">${inDeal ? '✓' : '+'}</button></td>
                 <td style="text-align:center"><button class="hist-btn" onclick="showPriceHistory('${escJs(g.model)}','${escJs(g.storage)}')" title="Price history">📊</button></td>
-            </tr>`;
-        }).join('');
+            </tr>`);
+
+            // Grade rows (when model is expanded)
+            if (isExpanded) {
+                gradeOrder.forEach(grade => {
+                    const qty = displayGrades[grade] || 0;
+                    if (qty === 0) return;
+
+                    const label = grade === 'C (AMZ)' ? 'AMZ' : grade === 'Damaged' ? 'DMG' : grade === 'Defective' ? 'DEF' : grade;
+                    const cls = gradeClassMap[grade] || '';
+                    const gradeKey = `${key}|${grade}`;
+                    const gradeExpanded = isGradeExpanded(key, grade);
+                    const colors = g.colorsByGrade && g.colorsByGrade[grade] ? g.colorsByGrade[grade] : {};
+                    const hasColors = Object.keys(colors).length > 0;
+
+                    rows.push(`
+                    <tr class="row-grade" data-key="${escHtml(key)}" data-grade="${escHtml(grade)}">
+                        <td></td>
+                        <td>
+                            ${hasColors ? `<span class="expand-icon ${gradeExpanded ? 'expanded' : ''}" onclick="toggleGradeExpand('${escJs(key)}', '${escJs(grade)}')">▶</span>` : '<span style="display:inline-block;width:16px;margin-right:6px;"></span>'}
+                            <span class="grade-tag ${cls}"><span class="g-label">${label}</span></span>
+                        </td>
+                        <td></td>
+                        <td></td>
+                        <td class="cell-total">${qty}</td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                        <td></td>
+                    </tr>`);
+
+                    // Color rows (when grade is expanded)
+                    if (gradeExpanded && hasColors) {
+                        const colorKeys = Object.keys(colors).sort();
+                        colorKeys.forEach(color => {
+                            const colorQty = colors[color] || 0;
+                            if (colorQty === 0) return;
+
+                            rows.push(`
+                            <tr class="row-color" data-key="${escHtml(key)}" data-grade="${escHtml(grade)}" data-color="${escHtml(color)}">
+                                <td></td>
+                                <td>
+                                    <span style="display:inline-block;width:16px;margin-right:6px;"></span>
+                                    <span style="font-size:11px;color:var(--text-secondary);">${escHtml(color)}</span>
+                                </td>
+                                <td></td>
+                                <td></td>
+                                <td class="cell-total">${colorQty}</td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                                <td></td>
+                            </tr>`);
+                        });
+                    }
+                });
+            }
+        });
+
+        tbody.innerHTML = rows.join('');
     }
 
     /* ══════════════════════════════════════════════════════════
