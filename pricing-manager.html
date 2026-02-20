@@ -2958,7 +2958,13 @@
     }
 
     async function saveDealFinalize() {
-        await saveDealOnly();
+        const saveSuccess = await saveDealOnly();
+        if (!saveSuccess) {
+            // Save failed, error message already shown by saveDealOnly
+            return;
+        }
+
+        // Deal was successfully saved, now update status to 'finalized'
         if (currentDealId) {
             try {
                 await fetch(`/api/deals?id=${currentDealId}`, {
@@ -2966,28 +2972,58 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status: 'finalized' })
                 });
-            } catch (e) { console.warn('Finalize status update failed:', e); }
+            } catch (e) { 
+                console.warn('Finalize status update failed:', e); 
+                // Don't fail the whole operation if status update fails
+            }
         }
+        
+        // Only hide view after successful save
         hideFinalizeView();
     }
 
     async function exportDealFinalize() {
-        exportDeal();
-        if (currentDealId) {
+        const exportResult = await exportDeal();
+        
+        if (!exportResult.success) {
+            // Export or save failed
+            if (exportResult.error === 'No items in deal') {
+                // Error already shown by exportDeal
+                return;
+            }
+            // Check if Excel was downloaded but save failed
+            showToast('Excel file downloaded, but failed to save deal. Please try saving again.', 'error');
+            return;
+        }
+
+        // Deal was successfully saved, now update status to 'exported'
+        const dealIdToUpdate = exportResult.dealId || currentDealId;
+        if (dealIdToUpdate) {
             try {
-                await fetch(`/api/deals?id=${currentDealId}`, {
+                await fetch(`/api/deals?id=${dealIdToUpdate}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status: 'exported' })
                 });
-            } catch (e) { console.warn('Export status update failed:', e); }
+            } catch (e) { 
+                console.warn('Export status update failed:', e); 
+                // Don't fail the whole operation if status update fails
+            }
         }
+
+        // Show consolidated success message
+        showToast(exportResult.isUpdate ? 'Deal exported and updated successfully' : 'Deal exported and saved successfully', 'success');
+        
+        // Only hide view after successful completion
         hideFinalizeView();
     }
 
 
-    function exportDeal() {
-        if (dealItems.size === 0) { showToast('No items in deal', 'error'); return; }
+    async function exportDeal() {
+        if (dealItems.size === 0) { 
+            showToast('No items in deal', 'error'); 
+            return { success: false, error: 'No items in deal' }; 
+        }
 
         const dealName = document.getElementById('dealName').value.trim() || 'Untitled Deal';
         const buyer = document.getElementById('dealBuyer').value.trim();
@@ -3015,30 +3051,42 @@
         wsData.push([]);
         wsData.push(['', '', '', '', 'TOTAL', totalUnits, '', totalValue]);
 
-        const ws = XLSX.utils.aoa_to_sheet(wsData);
-        ws['!cols'] = [
-            { wch: 4 }, { wch: 32 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 12 }
-        ];
+        try {
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            ws['!cols'] = [
+                { wch: 4 }, { wch: 32 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 12 }
+            ];
 
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Deal');
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Deal');
 
-        const safeName = dealName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
-        const fileName = `Deal_${safeName}${buyer ? '_' + buyer.replace(/\s+/g, '_') : ''}_${now.toISOString().split('T')[0]}.xlsx`;
-        XLSX.writeFile(wb, fileName);
-        showToast(`Exported ${dealItems.size} items as Excel`, 'success');
+            const safeName = dealName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_-]/g, '');
+            const fileName = `Deal_${safeName}${buyer ? '_' + buyer.replace(/\s+/g, '_') : ''}_${now.toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, fileName);
 
-        // Save to server
-        saveDealToServer(dealName, buyer, totalUnits, totalValue);
+            // Save to server
+            const saveResult = await saveDealToServer(dealName, buyer, totalUnits, totalValue);
+            return { success: saveResult.success, isUpdate: saveResult.isUpdate, dealId: saveResult.dealId, error: saveResult.error };
+        } catch (err) {
+            console.error('Export failed:', err);
+            return { success: false, error: err.message || 'Failed to export deal' };
+        }
     }
 
     async function saveDealOnly() {
-        if (dealItems.size === 0) { showToast('No items in deal', 'error'); return; }
+        if (dealItems.size === 0) { showToast('No items in deal', 'error'); return false; }
         const dealName = document.getElementById('dealName').value.trim() || 'Untitled Deal';
         const buyer = document.getElementById('dealBuyer').value.trim();
         let totalUnits = 0, totalValue = 0;
         dealItems.forEach(item => { totalUnits += item.offerQty; totalValue += item.offerQty * item.offerPrice; });
-        await saveDealToServer(dealName, buyer, totalUnits, totalValue);
+        const result = await saveDealToServer(dealName, buyer, totalUnits, totalValue);
+        if (result.success) {
+            showToast(result.isUpdate ? 'Deal updated' : 'Deal saved', 'success');
+            return true;
+        } else {
+            showToast('Failed to save deal: ' + (result.error || 'unknown error'), 'error');
+            return false;
+        }
     }
 
     async function saveDealToServer(dealName, buyer, totalUnits, totalValue) {
@@ -3066,14 +3114,14 @@
                     currentDealId = data.deal.id;
                     saveDealState();
                 }
-                showToast(isUpdate ? 'Deal updated' : 'Deal saved', 'success');
                 loadPastDeals();
+                return { success: true, isUpdate, dealId: currentDealId };
             } else {
-                showToast('Failed to save deal: ' + (data.error || 'unknown error'), 'error');
+                return { success: false, isUpdate, error: data.error || 'unknown error' };
             }
         } catch (err) {
-            showToast('Failed to save deal', 'error');
             console.error('Deal save failed:', err);
+            return { success: false, isUpdate, error: err.message || 'Failed to save deal' };
         }
     }
 
