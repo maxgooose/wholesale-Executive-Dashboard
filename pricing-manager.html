@@ -995,6 +995,81 @@
         }
         .deal-actions .btn-primary:hover { background: var(--accent-hover); }
         .deal-actions .btn svg { width: 16px; height: 16px; }
+
+        /* Inline Finalize View */
+        .deal-finalize {
+            display: none;
+            flex-direction: column;
+            flex: 1;
+            overflow-y: auto;
+        }
+        .deal-finalize.active { display: flex; }
+        .deal-finalize-header {
+            padding: var(--space-4) var(--space-5);
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: var(--text-base);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: var(--space-2);
+        }
+        .deal-finalize-body {
+            padding: var(--space-5);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-4);
+            flex: 1;
+        }
+        .deal-finalize-body .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .deal-finalize-body .form-group label {
+            font-size: 10px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.04em; color: var(--text-muted);
+        }
+        .deal-finalize-body .form-group input {
+            padding: 8px 12px; border: 1px solid var(--border-default);
+            border-radius: var(--radius-md); font-size: var(--text-sm);
+            font-family: var(--font-display); background: var(--bg-primary);
+            color: var(--text-primary); outline: none;
+        }
+        .deal-finalize-body .form-group input:focus { border-color: var(--accent); }
+        .deal-finalize-summary {
+            padding: var(--space-4);
+            background: var(--bg-secondary);
+            border-radius: var(--radius-md);
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .deal-finalize-summary .fs-row {
+            display: flex; justify-content: space-between; font-size: var(--text-sm);
+        }
+        .deal-finalize-summary .fs-row .label { color: var(--text-secondary); }
+        .deal-finalize-summary .fs-row .val { font-weight: 700; font-family: var(--font-mono); }
+        .deal-finalize-summary .fs-row.total { border-top: 1px solid var(--border-default); padding-top: var(--space-2); margin-top: var(--space-1); font-size: var(--text-base); }
+        .deal-finalize-summary .fs-row.total .val { color: var(--positive); }
+        .deal-finalize-actions {
+            padding: var(--space-3) var(--space-5);
+            padding-bottom: calc(var(--space-3) + 44px);
+            border-top: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-2);
+            flex-shrink: 0;
+        }
+        .deal-finalize-actions .btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: var(--space-2); padding: 10px 12px; border-radius: var(--radius-md);
+            font-size: var(--text-sm); font-weight: 600; cursor: pointer; border: none;
+            font-family: var(--font-display); transition: all var(--transition-fast); width: 100%;
+        }
+        .deal-finalize-actions .btn-secondary {
+            background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border-default);
+        }
+        .deal-finalize-actions .btn-secondary:hover { background: var(--bg-hover); }
+        .deal-finalize-actions .btn-primary { background: var(--accent); color: white; }
+        .deal-finalize-actions .btn-primary:hover { background: var(--accent-hover); }
+        .deal-finalize-actions .btn svg { width: 16px; height: 16px; }
+        .deal-finalize-actions .btn-row { display: flex; gap: var(--space-2); }
+        .deal-finalize-actions .btn-row .btn { flex: 1; }
+
         .deal-empty {
             flex: 1;
             display: flex;
@@ -1605,9 +1680,56 @@
         </div>
         <div class="deal-actions" id="dealActions" style="display:none;">
             <button class="btn btn-secondary" onclick="clearDeal()">Clear</button>
-            <button class="btn btn-primary" id="proceedBtn" onclick="openProceedModal()" style="flex:2;">
+            <button class="btn btn-primary" id="proceedBtn" onclick="showFinalizeView()" style="flex:2;">
                 Proceed →
             </button>
+        </div>
+
+        <!-- Inline Finalize View (replaces items when Proceed is clicked) -->
+        <div class="deal-finalize" id="dealFinalizeView">
+            <div class="deal-finalize-header">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                Finalize Deal
+            </div>
+            <div class="deal-finalize-body">
+                <div class="form-group">
+                    <label for="dealName">Deal Name</label>
+                    <input type="text" id="dealName" placeholder="e.g. Q1 Bulk Order" oninput="saveDealState()">
+                </div>
+                <div class="form-group">
+                    <label for="dealBuyer">Buyer</label>
+                    <input type="text" id="dealBuyer" placeholder="e.g. ABC Wireless" oninput="saveDealState()">
+                </div>
+                <div class="deal-finalize-summary" id="finalizeSummary">
+                    <div class="fs-row">
+                        <span class="label">Line Items</span>
+                        <span class="val" id="finalizeItems">0</span>
+                    </div>
+                    <div class="fs-row">
+                        <span class="label">Total Units</span>
+                        <span class="val" id="finalizeUnits">0</span>
+                    </div>
+                    <div class="fs-row total">
+                        <span class="label">Total Value</span>
+                        <span class="val" id="finalizeValue">$0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="deal-finalize-actions">
+                <button class="btn btn-primary" onclick="exportDealFinalize()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export Excel
+                </button>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="saveDealFinalize()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        Save Deal
+                    </button>
+                    <button class="btn btn-secondary" onclick="hideFinalizeView()">
+                        ← Back
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1695,50 +1817,6 @@
         </div>
     </div>
 
-    <!-- ═══ Proceed / Finalize Deal Modal ═══ -->
-    <div class="modal-overlay" id="proceedModal" style="display:none;" onclick="if(event.target===this)closeProceedModal()">
-        <div class="modal" style="max-width:480px;">
-            <div class="modal-header">
-                <h2>Finalize Deal</h2>
-                <button class="btn btn-ghost" onclick="closeProceedModal()" style="font-size:18px;">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="dealName">Deal Name</label>
-                    <input type="text" id="dealName" placeholder="e.g. Q1 Bulk Order">
-                </div>
-                <div class="form-group">
-                    <label for="dealBuyer">Buyer</label>
-                    <input type="text" id="dealBuyer" placeholder="e.g. ABC Wireless">
-                </div>
-                <div class="export-preview" id="proceedPreview" style="margin-top:16px;">
-                    <div class="export-preview-row">
-                        <span class="label">Line Items</span>
-                        <span class="value" id="proceedItems">0</span>
-                    </div>
-                    <div class="export-preview-row">
-                        <span class="label">Total Units</span>
-                        <span class="value" id="proceedUnits">0</span>
-                    </div>
-                    <div class="export-preview-row">
-                        <span class="label">Total Value</span>
-                        <span class="value" id="proceedValue">$0</span>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer" style="display:flex;gap:8px;">
-                <button class="btn btn-secondary" onclick="closeProceedModal()">Back</button>
-                <button class="btn btn-secondary" onclick="saveDealFromModal()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                    Save
-                </button>
-                <button class="btn btn-primary" onclick="exportDealFromModal()">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    Export Excel
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
@@ -2784,45 +2862,41 @@
     }
 
     /* ══════════════════════════════════════════════════════════
-       DEAL EXPORT
+       DEAL FINALIZE (inline panel view)
        ══════════════════════════════════════════════════════════ */
-    function openProceedModal() {
-        try {
-            if (dealItems.size === 0) { showToast('No items in deal', 'error'); return; }
-            let totalUnits = 0, totalValue = 0;
-            dealItems.forEach(item => { totalUnits += item.offerQty; totalValue += item.offerQty * (item.offerPrice || 0); });
-            document.getElementById('proceedItems').textContent = dealItems.size;
-            document.getElementById('proceedUnits').textContent = totalUnits.toLocaleString();
-            document.getElementById('proceedValue').textContent = '$' + totalValue.toLocaleString();
-            const modal = document.getElementById('proceedModal');
-            // #region agent log
-            alert('DEBUG step1: modal found=' + !!modal + ', tagName=' + (modal ? modal.tagName : 'N/A'));
-            // #endregion
-            modal.style.cssText = 'display:flex !important; z-index:10000 !important; position:fixed; inset:0; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:24px;';
-            modal.classList.add('visible');
-            // #region agent log
-            alert('DEBUG step2: modal display=' + getComputedStyle(modal).display + ', zIndex=' + getComputedStyle(modal).zIndex + ', children=' + modal.children.length + ', innerModal=' + (modal.querySelector('.modal') ? 'EXISTS' : 'MISSING'));
-            // #endregion
-            setTimeout(() => { const dn = document.getElementById('dealName'); if (dn) dn.focus(); }, 100);
-        } catch (e) {
-            // #region agent log
-            alert('DEBUG ERROR: ' + e.message);
-            // #endregion
-            console.error('openProceedModal error:', e);
-        }
+    function showFinalizeView() {
+        if (dealItems.size === 0) { showToast('No items in deal', 'error'); return; }
+        let totalUnits = 0, totalValue = 0;
+        dealItems.forEach(item => { totalUnits += item.offerQty; totalValue += item.offerQty * (item.offerPrice || 0); });
+        document.getElementById('finalizeItems').textContent = dealItems.size;
+        document.getElementById('finalizeUnits').textContent = totalUnits.toLocaleString();
+        document.getElementById('finalizeValue').textContent = '$' + totalValue.toLocaleString();
+
+        document.getElementById('dealItemsHeader').style.display = 'none';
+        document.getElementById('dealItemsList').style.display = 'none';
+        document.getElementById('dealSummary').style.display = 'none';
+        document.getElementById('dealActions').style.display = 'none';
+        document.querySelector('.deal-add-section').style.display = 'none';
+        document.getElementById('dealFinalizeView').classList.add('active');
+        setTimeout(() => { const dn = document.getElementById('dealName'); if (dn) dn.focus(); }, 50);
     }
-    function closeProceedModal() {
-        const modal = document.getElementById('proceedModal');
-        modal.style.cssText = 'display:none;';
-        modal.classList.remove('visible');
+
+    function hideFinalizeView() {
+        document.getElementById('dealFinalizeView').classList.remove('active');
+        document.getElementById('dealItemsHeader').style.display = '';
+        document.getElementById('dealItemsList').style.display = '';
+        document.querySelector('.deal-add-section').style.display = '';
+        renderDealItems();
     }
-    function saveDealFromModal() {
+
+    function saveDealFinalize() {
         saveDealOnly();
-        closeProceedModal();
+        hideFinalizeView();
     }
-    function exportDealFromModal() {
+
+    function exportDealFinalize() {
         exportDeal();
-        closeProceedModal();
+        hideFinalizeView();
     }
 
 
