@@ -1685,6 +1685,7 @@
     <!-- Error Banner -->
     <div class="error-banner" id="errorBanner">
         <span id="errorText"></span>
+        <button class="btn btn-ghost" id="errorRetryBtn" onclick="document.getElementById('errorBanner').classList.remove('visible'); loadInventory();" style="margin-left:8px;font-size:var(--text-xs);display:none;">Retry</button>
         <button class="btn btn-ghost" onclick="document.getElementById('errorBanner').classList.remove('visible')" style="margin-left:auto;font-size:var(--text-xs);">Dismiss</button>
     </div>
 
@@ -1999,8 +2000,6 @@
     let activeBrands = new Set();
     let activeStorages = new Set();
     let activeLocations = new Set();
-    let expandedModels = new Set();
-    let expandedGrades = new Map();
     let allBrands = {};
     let allStorages = {};
 
@@ -2034,13 +2033,24 @@
     /* ══════════════════════════════════════════════════════════
        DATA LOADING
        ══════════════════════════════════════════════════════════ */
+    const INVENTORY_FETCH_TIMEOUT = 25000;
+
     async function fetchPricingInventory(onProgress) {
         if (onProgress) onProgress(0, 1);
-        const response = await fetch('/api/inventory');
-        if (!response.ok) throw new Error(`API returned ${response.status}`);
-        const rawData = await response.json();
-        if (onProgress) onProgress(1, 1);
-        return rawData.data || [];
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), INVENTORY_FETCH_TIMEOUT);
+        try {
+            const response = await fetch('/api/inventory', { signal: controller.signal });
+            clearTimeout(timeoutId);
+            if (!response.ok) throw new Error(`API returned ${response.status}`);
+            const rawData = await response.json();
+            if (onProgress) onProgress(1, 1);
+            return rawData.data || [];
+        } catch (err) {
+            clearTimeout(timeoutId);
+            if (err.name === 'AbortError') throw new Error('Request timed out. Check your connection or try again later.');
+            throw err;
+        }
     }
 
     const PRICING_CACHE_KEY = 'pricing_manager_cache';
@@ -2099,22 +2109,27 @@
             console.warn('Local snapshot not available:', e.message);
         }
 
-        // Fallback to proxy
-        showLoading(true, 'Fetching Ready Room + Processing...');
+        // Fallback to API
+        showLoading(true, 'Fetching inventory...');
         document.getElementById('loadingDetail').textContent = 'Loading...';
-        const rawItems = await fetchPricingInventory((cur, tot) => {
-            const pct = Math.round((cur / tot) * 100);
-            document.getElementById('loadingBar').style.width = pct + '%';
-            document.getElementById('loadingDetail').textContent = `Page ${cur} of ${tot} (${pct}%)`;
-        });
-        showLoading(true, 'Processing...'); savePricingCache(rawItems);
-        const items = WholecellTransformer.transformAll(rawItems);
-        inventoryGroups = groupInventory(items);
-        await mergeWithPrices();
-        lastSyncTime = new Date();
-        buildFilterChips();
-        updateSyncInfo(); applyFiltersAndRender(); updateStats(); showLoading(false);
-        showToast(`Loaded ${inventoryGroups.length} model groups`, 'success');
+        try {
+            const rawItems = await fetchPricingInventory((cur, tot) => {
+                const pct = Math.round((cur / tot) * 100);
+                document.getElementById('loadingBar').style.width = pct + '%';
+                document.getElementById('loadingDetail').textContent = `Page ${cur} of ${tot} (${pct}%)`;
+            });
+            showLoading(true, 'Processing...'); savePricingCache(rawItems);
+            const items = WholecellTransformer.transformAll(rawItems);
+            inventoryGroups = groupInventory(items);
+            await mergeWithPrices();
+            lastSyncTime = new Date();
+            buildFilterChips();
+            updateSyncInfo(); applyFiltersAndRender(); updateStats(); showLoading(false);
+            showToast(`Loaded ${inventoryGroups.length} model groups`, 'success');
+        } catch (err) {
+            showLoading(false);
+            showError('Could not load inventory: ' + (err.message || 'Unknown error'), true);
+        }
     }
 
     async function backgroundSync() {
@@ -3710,7 +3725,12 @@
        UI HELPERS
        ══════════════════════════════════════════════════════════ */
     function showLoading(show, text) { const el = document.getElementById('loadingOverlay'); if (show) { el.classList.remove('hidden'); if (text) document.getElementById('loadingText').textContent = text; } else { el.classList.add('hidden'); } }
-    function showError(msg) { document.getElementById('errorText').textContent = msg; document.getElementById('errorBanner').classList.add('visible'); }
+    function showError(msg, showRetry) {
+        document.getElementById('errorText').textContent = msg;
+        document.getElementById('errorBanner').classList.add('visible');
+        const retryBtn = document.getElementById('errorRetryBtn');
+        if (retryBtn) retryBtn.style.display = showRetry ? 'inline-block' : 'none';
+    }
     function showToast(msg, type = 'success') { const c = document.getElementById('toastContainer'); const t = document.createElement('div'); t.className = 'toast ' + type; t.textContent = msg; c.appendChild(t); setTimeout(() => t.remove(), 3500); }
     // Light mode only
     function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
