@@ -2787,9 +2787,6 @@
        DEAL EXPORT
        ══════════════════════════════════════════════════════════ */
     function openProceedModal() {
-        // #region agent log
-        alert('DEBUG: openProceedModal called! dealItems.size=' + dealItems.size);
-        // #endregion
         try {
             if (dealItems.size === 0) { showToast('No items in deal', 'error'); return; }
             let totalUnits = 0, totalValue = 0;
@@ -2798,12 +2795,20 @@
             document.getElementById('proceedUnits').textContent = totalUnits.toLocaleString();
             document.getElementById('proceedValue').textContent = '$' + totalValue.toLocaleString();
             const modal = document.getElementById('proceedModal');
+            // #region agent log
+            alert('DEBUG step1: modal found=' + !!modal + ', tagName=' + (modal ? modal.tagName : 'N/A'));
+            // #endregion
             modal.style.cssText = 'display:flex !important; z-index:10000 !important; position:fixed; inset:0; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:24px;';
             modal.classList.add('visible');
+            // #region agent log
+            alert('DEBUG step2: modal display=' + getComputedStyle(modal).display + ', zIndex=' + getComputedStyle(modal).zIndex + ', children=' + modal.children.length + ', innerModal=' + (modal.querySelector('.modal') ? 'EXISTS' : 'MISSING'));
+            // #endregion
             setTimeout(() => { const dn = document.getElementById('dealName'); if (dn) dn.focus(); }, 100);
         } catch (e) {
+            // #region agent log
+            alert('DEBUG ERROR: ' + e.message);
+            // #endregion
             console.error('openProceedModal error:', e);
-            alert('Error opening deal modal: ' + e.message);
         }
     }
     function closeProceedModal() {
