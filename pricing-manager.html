@@ -2400,11 +2400,11 @@
             const bc = brandClass(g.brand);
             const inDeal = dealItems.has(key);
 
-            const grades = gradeOrder.map(grade => {
+            const grades = gradeOrder.filter(grade => (g.grades[grade] || 0) > 0).map(grade => {
                 const qty = g.grades[grade] || 0;
                 const label = grade === 'C (AMZ)' ? 'AMZ' : grade === 'Damaged' ? 'DMG' : grade === 'Defective' ? 'DEF' : grade;
                 const cls = gradeClassMap[grade] || '';
-                return `<span class="grade-tag ${cls} ${qty === 0 ? 'empty' : ''}"><span class="g-label">${label}</span><span class="g-count">${qty}</span></span>`;
+                return `<span class="grade-tag ${cls}"><span class="g-label">${label}</span><span class="g-count">${qty}</span></span>`;
             }).join('');
 
             return `
