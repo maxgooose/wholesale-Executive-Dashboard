@@ -16,6 +16,26 @@
             overflow-x: hidden;
         }
 
+        /* ── Grade Color Tokens ──────────────────── */
+        :root {
+            --grade-a-text: #059669;
+            --grade-a-bg: #ecfdf5;
+            --grade-b-text: #2563eb;
+            --grade-b-bg: #eff6ff;
+            --grade-c-text: #d97706;
+            --grade-c-bg: #fffbeb;
+            --grade-amz-text: #7c3aed;
+            --grade-amz-bg: #f5f3ff;
+            --grade-d-text: #dc2626;
+            --grade-d-bg: #fef2f2;
+            --grade-dmg-text: #be123c;
+            --grade-dmg-bg: #fff1f2;
+            --grade-def-text: #9f1239;
+            --grade-def-bg: #ffe4e6;
+            --grade-raw-text: #475569;
+            --grade-raw-bg: #f1f5f9;
+        }
+
         /* ── Loading Overlay ─────────────────────── */
         .loading-overlay {
             position: fixed; inset: 0;
@@ -61,12 +81,12 @@
 
         /* ── Compact Top Bar ────────────────────── */
         .top-bar {
-            height: 56px;
+            height: 60px;
             background: var(--bg-card);
             border-bottom: 1px solid var(--border-subtle);
             display: flex;
             align-items: center;
-            padding: 0 var(--space-5);
+            padding: 0 var(--space-6);
             gap: var(--space-4);
             position: sticky;
             top: 52px;
@@ -129,10 +149,10 @@
         }
         .search-wrap input {
             width: 100%;
-            height: 38px;
-            padding: 0 14px 0 40px;
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-xl);
+            height: 40px;
+            padding: 0 16px 0 42px;
+            border: 1.5px solid var(--border-subtle);
+            border-radius: var(--radius-full);
             font-size: var(--text-sm);
             font-family: var(--font-display);
             background: var(--bg-secondary);
@@ -155,11 +175,11 @@
             flex-shrink: 0;
         }
         .icon-btn {
-            width: 36px; height: 36px;
-            border-radius: var(--radius-md);
+            width: 38px; height: 38px;
+            border-radius: var(--radius-lg);
             border: none;
             background: transparent;
-            color: var(--text-secondary);
+            color: var(--text-tertiary);
             cursor: pointer;
             display: inline-flex;
             align-items: center;
@@ -168,7 +188,7 @@
             position: relative;
         }
         .icon-btn:hover {
-            background: var(--bg-hover);
+            background: var(--bg-secondary);
             color: var(--text-primary);
         }
         .icon-btn svg { width: 18px; height: 18px; }
@@ -216,18 +236,18 @@
         .filter-popover-backdrop.open { display: block; }
         .filter-popover {
             position: fixed;
-            top: 110px;
-            right: var(--space-5);
-            width: 340px;
+            top: 114px;
+            right: var(--space-6);
+            width: 360px;
             max-height: calc(100vh - 80px);
             background: var(--bg-card);
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-xl);
-            box-shadow: 0 20px 60px -12px rgba(0,0,0,0.15), 0 0 0 1px rgba(0,0,0,0.03);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-2xl);
+            box-shadow: 0 24px 64px -16px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.02);
             z-index: calc(var(--z-sticky) + 11);
             display: none;
             overflow: hidden;
-            animation: popoverIn 0.15s ease;
+            animation: popoverIn 0.2s ease;
         }
         .filter-popover.open { display: flex; flex-direction: column; }
         @keyframes popoverIn {
@@ -425,7 +445,7 @@
             display: flex;
             align-items: center;
             gap: var(--space-5);
-            padding: 10px var(--space-5);
+            padding: 12px var(--space-6);
             border-bottom: 1px solid var(--border-subtle);
             background: var(--bg-card);
             flex-wrap: wrap;
@@ -433,7 +453,7 @@
         .stat-pill {
             display: flex;
             align-items: baseline;
-            gap: 5px;
+            gap: 6px;
         }
         .stat-pill .stat-label {
             font-size: 11px;
@@ -487,7 +507,7 @@
 
         /* ── Table Area ────────────────────────── */
         .table-area {
-            padding: 0 var(--space-5) 52px;
+            padding: 0 var(--space-6) 52px;
         }
         table {
             width: 100%;
@@ -497,35 +517,35 @@
         }
         thead th {
             background: var(--bg-card);
-            padding: 10px var(--space-3);
+            padding: 12px var(--space-4);
             text-align: left;
             font-weight: 600;
             font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 0.08em;
             color: var(--text-muted);
-            border-bottom: 2px solid var(--border-default);
+            border-bottom: 1.5px solid var(--border-default);
             position: sticky;
-            top: 108px;
+            top: 112px;
             z-index: 10;
             backdrop-filter: blur(12px);
         }
-        thead th:first-child { padding-left: var(--space-4); }
+        thead th:first-child { padding-left: var(--space-5); }
 
         tbody tr {
             transition: background var(--transition-fast);
         }
-        tbody tr:hover { background: var(--bg-hover); }
+        tbody tr:hover { background: rgba(0,0,0,0.015); }
         tbody tr.selected { background: var(--accent-subtle); }
 
         tbody td {
-            padding: 12px var(--space-3);
+            padding: 14px var(--space-4);
             border-bottom: 1px solid var(--border-subtle);
             vertical-align: middle;
         }
         tbody tr td:first-child {
             border-left: 3px solid transparent;
-            padding-left: calc(var(--space-4) - 3px);
+            padding-left: calc(var(--space-5) - 3px);
         }
 
         /* Brand color left border */
@@ -564,23 +584,47 @@
         .loc-badge.loc-rr { background: rgba(34,197,94,0.15); color: #22c55e; }
         .loc-badge.loc-proc { background: rgba(234,179,8,0.15); color: #eab308; }
 
-        /* Compact grade display */
+        /* Subtle Tag Grade Display */
         .grade-display {
             display: flex;
-            gap: 6px;
-            font-size: 11px;
+            flex-wrap: wrap;
+            gap: 4px;
             font-family: var(--font-mono);
         }
-        .grade-item {
-            color: var(--text-secondary);
-            font-weight: 500;
+        .grade-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 7px;
+            border-radius: var(--radius-full);
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.5;
+            white-space: nowrap;
+            transition: opacity var(--transition-fast);
         }
-        .grade-item .g-label {
-            color: var(--text-muted);
+        .grade-tag .g-label {
+            font-weight: 700;
+            font-size: 10px;
+            letter-spacing: 0.02em;
+        }
+        .grade-tag .g-count {
             font-weight: 600;
             font-size: 10px;
         }
-        .grade-item.empty { opacity: 0.25; }
+        .grade-tag.empty {
+            opacity: 0.2;
+            background: var(--bg-secondary) !important;
+            color: var(--text-muted) !important;
+        }
+        .grade-tag.grade-a { background: var(--grade-a-bg); color: var(--grade-a-text); }
+        .grade-tag.grade-b { background: var(--grade-b-bg); color: var(--grade-b-text); }
+        .grade-tag.grade-c { background: var(--grade-c-bg); color: var(--grade-c-text); }
+        .grade-tag.grade-amz { background: var(--grade-amz-bg); color: var(--grade-amz-text); }
+        .grade-tag.grade-d { background: var(--grade-d-bg); color: var(--grade-d-text); }
+        .grade-tag.grade-dmg { background: var(--grade-dmg-bg); color: var(--grade-dmg-text); }
+        .grade-tag.grade-def { background: var(--grade-def-bg); color: var(--grade-def-text); }
+        .grade-tag.grade-raw { background: var(--grade-raw-bg); color: var(--grade-raw-text); }
 
         .cell-total {
             font-family: var(--font-mono);
@@ -593,16 +637,16 @@
         /* Price input — the hero element */
         .price-cell {
             text-align: center;
-            min-width: 100px;
+            min-width: 110px;
         }
         .grade-price-input {
             display: inline-flex;
             align-items: center;
-            gap: 1px;
+            gap: 2px;
             background: var(--bg-secondary);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            padding: 2px;
+            border: 1.5px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 3px;
             transition: all var(--transition-fast);
         }
         .grade-price-input:focus-within {
@@ -613,14 +657,14 @@
         .grade-price-input span {
             font-size: var(--text-sm);
             color: var(--text-muted);
-            padding-left: 8px;
+            padding-left: 10px;
             font-weight: 500;
         }
         .grade-price-input input {
-            width: 72px;
-            padding: 6px 8px;
+            width: 76px;
+            padding: 7px 8px;
             border: none;
-            border-radius: var(--radius-sm);
+            border-radius: var(--radius-md);
             font-size: 14px;
             font-family: var(--font-mono);
             font-weight: 600;
@@ -660,9 +704,9 @@
 
         /* Deal add button (subtle, appears on hover) */
         .add-deal-btn {
-            width: 26px; height: 26px;
-            border-radius: var(--radius-md);
-            border: 1px solid transparent;
+            width: 28px; height: 28px;
+            border-radius: var(--radius-full);
+            border: 1.5px solid transparent;
             background: transparent;
             color: var(--text-muted);
             cursor: pointer;
@@ -680,9 +724,9 @@
             color: var(--accent);
             border-color: var(--accent);
         }
-        .hist-btn { background:none; border:none; cursor:pointer; font-size:14px; opacity:0.4; padding:2px 4px; transition:opacity 0.15s; }
-        tbody tr:hover .hist-btn { opacity:0.8; }
-        .hist-btn:hover { opacity:1; }
+        .hist-btn { background:none; border:none; cursor:pointer; font-size:14px; opacity:0.3; padding:2px 4px; transition:opacity 0.15s; border-radius: var(--radius-full); }
+        tbody tr:hover .hist-btn { opacity:0.7; }
+        .hist-btn:hover { opacity:1; background: var(--bg-secondary); }
         .add-deal-btn.in-deal {
             opacity: 1;
             background: #6366f1;
@@ -718,20 +762,20 @@
         .sticky-footer {
             position: fixed;
             bottom: 0; left: 0; right: 0;
-            height: 40px;
+            height: 44px;
             background: var(--bg-card);
             border-top: 1px solid var(--border-subtle);
             display: flex;
             align-items: center;
-            padding: 0 var(--space-5);
+            padding: 0 var(--space-6);
             gap: var(--space-5);
             z-index: var(--z-sticky);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(16px);
             font-size: 12px;
             color: var(--text-muted);
             transition: right var(--transition-slow);
         }
-        .sticky-footer.panel-open { right: 420px; }
+        .sticky-footer.panel-open { right: 440px; }
         .footer-item {
             display: flex;
             align-items: center;
@@ -750,13 +794,13 @@
         /* ── Deal Builder Panel ─────────────────── */
         .deal-panel {
             position: fixed;
-            top: 0; right: -420px;
-            width: 420px; height: 100vh;
+            top: 0; right: -440px;
+            width: 440px; height: 100vh;
             background: var(--bg-card);
-            border-left: 1px solid var(--border-default);
-            box-shadow: -8px 0 30px -12px rgba(0,0,0,0.1);
+            border-left: 1px solid var(--border-subtle);
+            box-shadow: -12px 0 40px -16px rgba(0,0,0,0.08);
             z-index: calc(var(--z-sticky) + 5);
-            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1);
             display: flex;
             flex-direction: column;
         }
@@ -766,12 +810,12 @@
         body.deal-open .active-filters-strip,
         body.deal-open .stats-toolbar,
         body.deal-open .table-area {
-            margin-right: 420px;
+            margin-right: 440px;
         }
-        body.deal-open .sticky-footer { right: 420px; }
+        body.deal-open .sticky-footer { right: 440px; }
 
         .deal-panel-header {
-            padding: var(--space-4) var(--space-5);
+            padding: var(--space-5) var(--space-6);
             border-bottom: 1px solid var(--border-subtle);
             display: flex;
             align-items: center;
@@ -779,14 +823,14 @@
             flex-shrink: 0;
         }
         .deal-panel-header h2 {
-            font-size: var(--text-base);
+            font-size: var(--text-lg);
             font-weight: 700;
             display: flex;
             align-items: center;
             gap: var(--space-2);
         }
         .deal-panel-fields {
-            padding: var(--space-4) var(--space-5);
+            padding: var(--space-4) var(--space-6);
             border-bottom: 1px solid var(--border-subtle);
             display: flex;
             flex-direction: column;
@@ -804,56 +848,65 @@
         }
         .deal-field input {
             width: 100%;
-            padding: 8px 12px;
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-md);
+            padding: 10px 14px;
+            border: 1.5px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
             font-size: var(--text-sm);
             font-family: var(--font-display);
             background: var(--bg-primary);
             color: var(--text-primary);
             outline: none;
+            transition: all var(--transition-fast);
         }
-        .deal-field input:focus { border-color: var(--accent); }
+        .deal-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
 
         /* Deal Maker Search Section */
-        .deal-add-section { padding: 0 var(--space-5) var(--space-3); border-bottom: 1px solid var(--border-subtle); }
-        .deal-add-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 6px; }
-        .deal-search-wrap { position: relative; margin-bottom: 8px; }
-        .deal-search-wrap input { width: 100%; padding: 8px 10px; border: 1px solid var(--border-default); border-radius: 6px; font-size: 13px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; }
-        .deal-search-wrap input:focus { outline: none; border-color: var(--accent); }
-        .deal-search-dropdown { position: absolute; top: 100%; left: 0; right: 0; max-height: 200px; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border-default); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); z-index: 60; display: none; margin-top: 2px; }
+        .deal-add-section { padding: var(--space-4) var(--space-6) var(--space-4); border-bottom: 1px solid var(--border-subtle); }
+        .deal-add-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 8px; }
+        .deal-search-wrap { position: relative; margin-bottom: 10px; }
+        .deal-search-wrap input { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border-subtle); border-radius: var(--radius-lg); font-size: 13px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; transition: all var(--transition-fast); }
+        .deal-search-wrap input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
+        .deal-search-dropdown { position: absolute; top: 100%; left: 0; right: 0; max-height: 220px; overflow-y: auto; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); box-shadow: 0 12px 32px rgba(0,0,0,0.12); z-index: 60; display: none; margin-top: 4px; }
         .deal-search-dropdown.visible { display: block; }
-        .deal-search-opt { padding: 8px 10px; cursor: pointer; font-size: 13px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); }
+        .deal-search-opt { padding: 10px 14px; cursor: pointer; font-size: 13px; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); transition: background var(--transition-fast); }
         .deal-search-opt:last-child { border-bottom: none; }
         .deal-search-opt:hover { background: var(--bg-secondary); }
-        .deal-search-opt .ds-name { font-weight: 500; }
-        .deal-search-opt .ds-meta { font-size: 11px; color: var(--text-secondary); }
-        .deal-search-opt .ds-colors { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
-        .deal-search-opt .ds-stock { font-size: 11px; color: var(--text-secondary); font-weight: 600; }
+        .deal-search-opt .ds-name { font-weight: 600; }
+        .deal-search-opt .ds-meta { font-size: 11px; color: var(--text-tertiary); }
+        .deal-search-opt .ds-colors { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+        .deal-search-opt .ds-stock { font-size: 11px; color: var(--text-secondary); font-weight: 700; font-family: var(--font-mono); }
         .deal-add-row { margin-bottom: 8px; }
-        .deal-add-selected { font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
-        .deal-add-stock { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
-        .deal-chip-section { margin-bottom: 8px; }
-        .deal-chip-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
-        .deal-chip-row { display: flex; flex-wrap: wrap; gap: 5px; }
-        .deal-chip { padding: 4px 10px; border-radius: 16px; font-size: 12px; font-weight: 500; cursor: pointer; border: 2px solid var(--border-default); background: var(--bg-primary); color: var(--text-primary); transition: all 0.15s; user-select: none; }
-        .deal-chip:hover { border-color: var(--accent); }
-        .deal-chip.selected { border-color: var(--accent); background: var(--accent); color: #fff; }
-        .deal-chip.disabled { opacity: 0.3; cursor: not-allowed; pointer-events: none; }
-        .deal-chip .dc-count { font-size: 10px; opacity: 0.7; margin-left: 3px; }
-        .deal-add-fields { display: flex; gap: 6px; align-items: end; }
-        .deal-add-field { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+        .deal-add-selected { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+        .deal-add-stock { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; font-family: var(--font-mono); }
+        .deal-chip-section { margin-bottom: 10px; }
+        .deal-chip-label { font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        .deal-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+        .deal-chip { padding: 5px 12px; border-radius: var(--radius-full); font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border-subtle); background: var(--bg-primary); color: var(--text-secondary); transition: all 0.15s; user-select: none; }
+        .deal-chip:hover { border-color: var(--accent); color: var(--accent); }
+        .deal-chip.selected { border-color: var(--accent); background: var(--accent-subtle); color: var(--accent); }
+        .deal-chip.disabled { opacity: 0.2; cursor: not-allowed; pointer-events: none; }
+        .deal-chip .dc-count { font-size: 10px; opacity: 0.6; margin-left: 3px; }
+        .deal-chip.selected.dg-a { border-color: var(--grade-a-text); background: var(--grade-a-bg); color: var(--grade-a-text); }
+        .deal-chip.selected.dg-b { border-color: var(--grade-b-text); background: var(--grade-b-bg); color: var(--grade-b-text); }
+        .deal-chip.selected.dg-c { border-color: var(--grade-c-text); background: var(--grade-c-bg); color: var(--grade-c-text); }
+        .deal-chip.selected.dg-amz { border-color: var(--grade-amz-text); background: var(--grade-amz-bg); color: var(--grade-amz-text); }
+        .deal-chip.selected.dg-d { border-color: var(--grade-d-text); background: var(--grade-d-bg); color: var(--grade-d-text); }
+        .deal-chip.selected.dg-dmg { border-color: var(--grade-dmg-text); background: var(--grade-dmg-bg); color: var(--grade-dmg-text); }
+        .deal-chip.selected.dg-def { border-color: var(--grade-def-text); background: var(--grade-def-bg); color: var(--grade-def-text); }
+        .deal-chip.selected.dg-raw { border-color: var(--grade-raw-text); background: var(--grade-raw-bg); color: var(--grade-raw-text); }
+        .deal-add-fields { display: flex; gap: 8px; align-items: end; }
+        .deal-add-field { display: flex; flex-direction: column; gap: 4px; flex: 1; }
         .deal-add-field label { font-size: 10px; color: var(--text-muted); font-weight: 600; }
-        .deal-add-field select, .deal-add-field input { padding: 6px 8px; border: 1px solid var(--border-default); border-radius: 5px; font-size: 12px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; }
-        .deal-add-field select:focus, .deal-add-field input:focus { outline: none; border-color: var(--accent); }
-        .deal-add-confirm { width: 100%; padding: 10px 16px; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 10px; transition: all 0.15s; font-family: var(--font-display); }
-        .deal-add-confirm:hover { filter: brightness(1.1); }
-        .deal-add-confirm:disabled { opacity: 0.3; cursor: not-allowed; filter: none; }
-        .deal-add-preview { font-size: 11px; color: var(--text-secondary); margin-top: 6px; font-family: var(--font-mono); font-weight: 600; }
+        .deal-add-field select, .deal-add-field input { padding: 8px 10px; border: 1.5px solid var(--border-subtle); border-radius: var(--radius-lg); font-size: 13px; background: var(--bg-primary); color: var(--text-primary); font-family: inherit; transition: all var(--transition-fast); }
+        .deal-add-field select:focus, .deal-add-field input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
+        .deal-add-confirm { width: 100%; padding: 11px 16px; background: var(--accent); color: #fff; border: none; border-radius: var(--radius-lg); font-size: 14px; font-weight: 700; cursor: pointer; margin-top: 12px; transition: all 0.15s; font-family: var(--font-display); }
+        .deal-add-confirm:hover { background: var(--accent-hover); }
+        .deal-add-confirm:disabled { opacity: 0.3; cursor: not-allowed; }
+        .deal-add-preview { font-size: 11px; color: var(--text-secondary); margin-top: 8px; font-family: var(--font-mono); font-weight: 600; }
         .deal-add-preview .preview-total { color: var(--positive); }
 
         .deal-items-header {
-            padding: 10px var(--space-5);
+            padding: 12px var(--space-6);
             font-size: 10px;
             font-weight: 700;
             color: var(--text-muted);
@@ -868,11 +921,11 @@
             overflow-y: auto;
         }
         .deal-item {
-            padding: var(--space-3) var(--space-5);
+            padding: var(--space-4) var(--space-6);
             border-bottom: 1px solid var(--border-subtle);
             transition: background var(--transition-fast);
         }
-        .deal-item:hover { background: var(--bg-hover); }
+        .deal-item:hover { background: rgba(0,0,0,0.015); }
         .deal-item-top {
             display: flex;
             align-items: center;
@@ -884,7 +937,18 @@
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            max-width: 260px;
+            max-width: 280px;
+        }
+        .deal-item-grade-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 7px;
+            border-radius: var(--radius-full);
+            font-size: 10px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            margin-left: 6px;
+            vertical-align: middle;
         }
         .deal-item-remove {
             background: none;
@@ -892,11 +956,11 @@
             cursor: pointer;
             color: var(--text-muted);
             font-size: 16px;
-            width: 24px; height: 24px;
+            width: 26px; height: 26px;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: var(--radius-sm);
+            border-radius: var(--radius-full);
             transition: all var(--transition-fast);
         }
         .deal-item-remove:hover {
@@ -907,7 +971,7 @@
             display: flex;
             align-items: center;
             gap: var(--space-2);
-            margin-top: 6px;
+            margin-top: 8px;
             font-size: var(--text-xs);
         }
         .deal-item-details .avail {
@@ -915,38 +979,39 @@
             flex-shrink: 0;
         }
         .deal-item-details input {
-            width: 52px;
-            padding: 4px 6px;
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-sm);
+            width: 56px;
+            padding: 5px 6px;
+            border: 1.5px solid var(--border-subtle);
+            border-radius: var(--radius-md);
             font-size: var(--text-xs);
             font-family: var(--font-mono);
             text-align: center;
             background: var(--bg-primary);
             color: var(--text-primary);
             outline: none;
+            transition: all var(--transition-fast);
         }
-        .deal-item-details input:focus { border-color: var(--accent); }
+        .deal-item-details input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-subtle); }
         .deal-item-subtotal {
             margin-left: auto;
             font-family: var(--font-mono);
-            font-weight: 600;
+            font-weight: 700;
             color: var(--positive);
             font-size: var(--text-xs);
         }
         .deal-summary {
-            padding: var(--space-4) var(--space-5);
-            border-top: 1px solid var(--border-default);
+            padding: var(--space-5) var(--space-6);
+            border-top: 1px solid var(--border-subtle);
             background: var(--bg-secondary);
             flex-shrink: 0;
         }
         .deal-summary-row {
             display: flex;
             justify-content: space-between;
-            padding: 3px 0;
+            padding: 4px 0;
             font-size: var(--text-sm);
         }
-        .deal-summary-row .label { color: var(--text-secondary); }
+        .deal-summary-row .label { color: var(--text-tertiary); }
         .deal-summary-row .val {
             font-weight: 700;
             font-family: var(--font-mono);
@@ -959,10 +1024,10 @@
         }
         .deal-summary-row.total .val { color: var(--positive); }
         .deal-actions {
-            padding: var(--space-3) var(--space-5);
-            padding-bottom: calc(var(--space-3) + 44px);
+            padding: var(--space-4) var(--space-6);
+            padding-bottom: calc(var(--space-4) + 44px);
             display: flex;
-            gap: var(--space-2);
+            gap: var(--space-3);
             border-top: 1px solid var(--border-subtle);
             flex-shrink: 0;
             position: relative;
@@ -974,8 +1039,8 @@
             align-items: center;
             justify-content: center;
             gap: var(--space-2);
-            padding: 10px 12px;
-            border-radius: var(--radius-md);
+            padding: 11px 14px;
+            border-radius: var(--radius-lg);
             font-size: var(--text-sm);
             font-weight: 600;
             cursor: pointer;
@@ -986,9 +1051,9 @@
         .deal-actions .btn-secondary {
             background: var(--bg-secondary);
             color: var(--text-secondary);
-            border: 1px solid var(--border-default);
+            border: 1.5px solid var(--border-subtle);
         }
-        .deal-actions .btn-secondary:hover { background: var(--bg-hover); }
+        .deal-actions .btn-secondary:hover { background: var(--bg-hover); border-color: var(--border-default); }
         .deal-actions .btn-primary {
             background: var(--accent);
             color: white;
@@ -1005,69 +1070,70 @@
         }
         .deal-finalize.active { display: flex; }
         .deal-finalize-header {
-            padding: var(--space-4) var(--space-5);
+            padding: var(--space-5) var(--space-6);
             border-bottom: 1px solid var(--border-subtle);
-            font-size: var(--text-base);
+            font-size: var(--text-lg);
             font-weight: 700;
             display: flex;
             align-items: center;
             gap: var(--space-2);
         }
         .deal-finalize-body {
-            padding: var(--space-5);
+            padding: var(--space-6);
             display: flex;
             flex-direction: column;
             gap: var(--space-4);
             flex: 1;
         }
-        .deal-finalize-body .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .deal-finalize-body .form-group { display: flex; flex-direction: column; gap: 6px; }
         .deal-finalize-body .form-group label {
             font-size: 10px; font-weight: 700; text-transform: uppercase;
             letter-spacing: 0.04em; color: var(--text-muted);
         }
         .deal-finalize-body .form-group input {
-            padding: 8px 12px; border: 1px solid var(--border-default);
-            border-radius: var(--radius-md); font-size: var(--text-sm);
+            padding: 10px 14px; border: 1.5px solid var(--border-subtle);
+            border-radius: var(--radius-lg); font-size: var(--text-sm);
             font-family: var(--font-display); background: var(--bg-primary);
             color: var(--text-primary); outline: none;
+            transition: all var(--transition-fast);
         }
-        .deal-finalize-body .form-group input:focus { border-color: var(--accent); }
+        .deal-finalize-body .form-group input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
         .deal-finalize-summary {
-            padding: var(--space-4);
+            padding: var(--space-5);
             background: var(--bg-secondary);
-            border-radius: var(--radius-md);
-            display: flex; flex-direction: column; gap: 6px;
+            border-radius: var(--radius-xl);
+            display: flex; flex-direction: column; gap: 8px;
         }
         .deal-finalize-summary .fs-row {
             display: flex; justify-content: space-between; font-size: var(--text-sm);
         }
-        .deal-finalize-summary .fs-row .label { color: var(--text-secondary); }
+        .deal-finalize-summary .fs-row .label { color: var(--text-tertiary); }
         .deal-finalize-summary .fs-row .val { font-weight: 700; font-family: var(--font-mono); }
-        .deal-finalize-summary .fs-row.total { border-top: 1px solid var(--border-default); padding-top: var(--space-2); margin-top: var(--space-1); font-size: var(--text-base); }
+        .deal-finalize-summary .fs-row.total { border-top: 1px solid var(--border-subtle); padding-top: var(--space-3); margin-top: var(--space-2); font-size: var(--text-base); }
         .deal-finalize-summary .fs-row.total .val { color: var(--positive); }
         .deal-finalize-actions {
-            padding: var(--space-3) var(--space-5);
-            padding-bottom: calc(var(--space-3) + 44px);
+            padding: var(--space-4) var(--space-6);
+            padding-bottom: calc(var(--space-4) + 44px);
             border-top: 1px solid var(--border-subtle);
             display: flex;
             flex-direction: column;
-            gap: var(--space-2);
+            gap: var(--space-3);
             flex-shrink: 0;
         }
         .deal-finalize-actions .btn {
             display: inline-flex; align-items: center; justify-content: center;
-            gap: var(--space-2); padding: 10px 12px; border-radius: var(--radius-md);
+            gap: var(--space-2); padding: 11px 14px; border-radius: var(--radius-lg);
             font-size: var(--text-sm); font-weight: 600; cursor: pointer; border: none;
             font-family: var(--font-display); transition: all var(--transition-fast); width: 100%;
         }
         .deal-finalize-actions .btn-secondary {
-            background: var(--bg-secondary); color: var(--text-secondary); border: 1px solid var(--border-default);
+            background: var(--bg-secondary); color: var(--text-secondary); border: 1.5px solid var(--border-subtle);
         }
-        .deal-finalize-actions .btn-secondary:hover { background: var(--bg-hover); }
+        .deal-finalize-actions .btn-secondary:hover { background: var(--bg-hover); border-color: var(--border-default); }
         .deal-finalize-actions .btn-primary { background: var(--accent); color: white; }
         .deal-finalize-actions .btn-primary:hover { background: var(--accent-hover); }
         .deal-finalize-actions .btn svg { width: 16px; height: 16px; }
-        .deal-finalize-actions .btn-row { display: flex; gap: var(--space-2); }
+        .deal-finalize-actions .btn-row { display: flex; gap: var(--space-3); }
         .deal-finalize-actions .btn-row .btn { flex: 1; }
 
         .deal-empty {
@@ -1078,14 +1144,14 @@
             justify-content: center;
             color: var(--text-muted);
             text-align: center;
-            padding: var(--space-8);
+            padding: var(--space-10);
         }
         .deal-empty svg {
-            width: 40px; height: 40px;
-            margin-bottom: var(--space-3);
-            opacity: 0.25;
+            width: 48px; height: 48px;
+            margin-bottom: var(--space-4);
+            opacity: 0.15;
         }
-        .deal-empty p { font-size: var(--text-sm); }
+        .deal-empty p { font-size: var(--text-sm); line-height: 1.6; }
 
         /* ── Past Deals ────────────────────────── */
         .deal-history-divider {
@@ -1127,14 +1193,14 @@
             gap: 6px;
         }
         .past-deal-card {
-            padding: 10px 12px;
+            padding: 12px 14px;
             background: var(--bg-secondary);
-            border-radius: var(--radius-md);
+            border-radius: var(--radius-lg);
             border: 1px solid var(--border-subtle);
             cursor: pointer;
             transition: all 0.15s;
         }
-        .past-deal-card:hover { border-color: var(--accent); background: var(--bg-hover); }
+        .past-deal-card:hover { border-color: var(--accent); background: rgba(0,0,0,0.015); }
         .past-deal-card .pd-top {
             display: flex;
             justify-content: space-between;
@@ -1183,8 +1249,8 @@
         /* ── Modals ─────────────────────────────── */
         .modal-overlay {
             position: fixed; inset: 0;
-            background: rgba(0,0,0,0.4);
-            backdrop-filter: blur(4px);
+            background: rgba(0,0,0,0.35);
+            backdrop-filter: blur(6px);
             display: none;
             align-items: center;
             justify-content: center;
@@ -1194,8 +1260,8 @@
         .modal-overlay.visible { display: flex !important; }
         .modal {
             background: var(--bg-card);
-            border-radius: var(--radius-xl);
-            box-shadow: var(--shadow-xl);
+            border-radius: var(--radius-2xl);
+            box-shadow: 0 24px 64px -16px rgba(0,0,0,0.18);
             width: 100%;
             max-width: 500px;
             overflow: hidden;
@@ -1285,8 +1351,8 @@
         /* ── Toast ────────────────────────────────── */
         .toast-container {
             position: fixed;
-            bottom: 52px;
-            right: var(--space-5);
+            bottom: 56px;
+            right: var(--space-6);
             z-index: var(--z-toast);
             display: flex;
             flex-direction: column;
@@ -1295,10 +1361,10 @@
         .toast {
             background: var(--bg-elevated);
             border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            padding: 10px 16px;
+            border-radius: var(--radius-lg);
+            padding: 12px 18px;
             font-size: var(--text-sm);
-            box-shadow: var(--shadow-lg);
+            box-shadow: 0 12px 40px -8px rgba(0,0,0,0.12);
             display: flex;
             align-items: center;
             gap: var(--space-2);
@@ -2327,16 +2393,18 @@
        ══════════════════════════════════════════════════════════ */
     function renderTable() {
         const tbody = document.getElementById('tableBody');
+        const gradeClassMap = { 'A': 'grade-a', 'B': 'grade-b', 'C (AMZ)': 'grade-amz', 'C': 'grade-c', 'D': 'grade-d', 'Damaged': 'grade-dmg', 'Defective': 'grade-def', 'RAW': 'grade-raw' };
+        const gradeOrder = ['A', 'B', 'C (AMZ)', 'C', 'D', 'Damaged', 'Defective', 'RAW'];
         tbody.innerHTML = filteredGroups.map((g, idx) => {
             const key = g.key, status = getRowStatus(g), value = getRowValue(g), sel = selectedRows.has(key);
             const bc = brandClass(g.brand);
             const inDeal = dealItems.has(key);
 
-            // Compact grade display
-            const grades = ['A', 'B', 'C (AMZ)', 'C', 'D', 'Damaged', 'Defective', 'RAW'].map(grade => {
+            const grades = gradeOrder.map(grade => {
                 const qty = g.grades[grade] || 0;
                 const label = grade === 'C (AMZ)' ? 'AMZ' : grade === 'Damaged' ? 'DMG' : grade === 'Defective' ? 'DEF' : grade;
-                return `<span class="grade-item ${qty === 0 ? 'empty' : ''}"><span class="g-label">${label}</span> ${qty}</span>`;
+                const cls = gradeClassMap[grade] || '';
+                return `<span class="grade-tag ${cls} ${qty === 0 ? 'empty' : ''}"><span class="g-label">${label}</span><span class="g-count">${qty}</span></span>`;
             }).join('');
 
             return `
@@ -2561,19 +2629,22 @@
         header.textContent = `Items (${dealItems.size})`;
         let totalUnits = 0, totalValue = 0;
 
+        const dealItemGradeMap = { 'A': 'grade-a', 'B': 'grade-b', 'C': 'grade-c', 'C (AMZ)': 'grade-amz', 'D': 'grade-d', 'Damaged': 'grade-dmg', 'Defective': 'grade-def', 'RAW': 'grade-raw' };
         list.innerHTML = Array.from(dealItems.values()).map(item => {
             const subtotal = item.offerQty * item.offerPrice;
             totalUnits += item.offerQty;
             totalValue += subtotal;
-            const gradeLabel = item.grade ? ` [${item.grade}]` : '';
+            const gradeTagCls = dealItemGradeMap[item.grade] || 'grade-raw';
+            const gradeShort = item.grade === 'C (AMZ)' ? 'AMZ' : item.grade === 'Damaged' ? 'DMG' : item.grade === 'Defective' ? 'DEF' : (item.grade || '');
+            const gradeTag = item.grade ? `<span class="deal-item-grade-tag grade-tag ${gradeTagCls}">${escHtml(gradeShort)}</span>` : '';
             return `
             <div class="deal-item" data-deal-key="${escHtml(item.key)}">
                 <div class="deal-item-top">
-                    <div class="deal-item-name" title="${escHtml(item.model)}">${escHtml(item.model)}${gradeLabel}</div>
+                    <div class="deal-item-name" title="${escHtml(item.model)}">${escHtml(item.model)}${gradeTag}</div>
                     <button class="deal-item-remove" onclick="toggleDealItem('${escJs(item.key)}')">&times;</button>
                 </div>
                 <div class="deal-item-details">
-                    <span class="avail">${escHtml(item.storage)}${item.grade ? ' · Grade ' + escHtml(item.grade) : ''}${item.color ? ' · ' + escHtml(item.color) : ''} &middot; Avail: ${item.maxQty}</span>
+                    <span class="avail">${escHtml(item.storage)}${item.color ? ' · ' + escHtml(item.color) : ''} · Avail: ${item.maxQty}</span>
                     <span>Qty:</span>
                     <input type="number" min="1" max="${item.maxQty}" value="${item.offerQty}"
                         onchange="updateDealQty('${escJs(item.key)}', this.value)"
@@ -2661,9 +2732,14 @@
             dd.innerHTML = results.map(g => {
                 const colorList = Object.keys(g.colors || {}).slice(0, 4).join(', ');
                 const moreColors = Object.keys(g.colors || {}).length > 4 ? ` +${Object.keys(g.colors).length - 4}` : '';
+                const miniGrades = [['A','grade-a'],['B','grade-b'],['C','grade-c'],['AMZ','grade-amz'],['D','grade-d']].map(([label, cls]) => {
+                    const key = label === 'AMZ' ? 'C (AMZ)' : label;
+                    const qty = g.grades[key] || 0;
+                    return qty > 0 ? `<span class="grade-tag ${cls}" style="font-size:9px;padding:1px 5px;">${label} ${qty}</span>` : '';
+                }).filter(Boolean).join('');
                 return `
                 <div class="deal-search-opt" onclick="selectDealModel('${escJs(g.key)}')">
-                    <div><div class="ds-name">${escHtml(g.model)}</div><div class="ds-meta">${escHtml(g.storage)} · A:${g.grades.A} B:${g.grades.B} C:${g.grades.C} AMZ:${g.grades['C (AMZ)']} D:${g.grades.D||0} DMG:${g.grades.Damaged||0} DEF:${g.grades.Defective||0} RAW:${g.grades.RAW||0}</div>${colorList ? `<div class="ds-colors">${escHtml(colorList)}${moreColors}</div>` : ''}</div>
+                    <div><div class="ds-name">${escHtml(g.model)}</div><div class="ds-meta">${escHtml(g.storage)} · ${miniGrades}</div>${colorList ? `<div class="ds-colors">${escHtml(colorList)}${moreColors}</div>` : ''}</div>
                     <div class="ds-stock">${g.total}</div>
                 </div>`;
             }).join('');
@@ -2683,7 +2759,7 @@
         document.getElementById('dealModelSearch').value = '';
         document.getElementById('dealAddSelected').textContent = `${dealSearchSelected.model} — ${dealSearchSelected.storage}`;
         const gr = dealSearchSelected.grades;
-        document.getElementById('dealAddStock').textContent = `Stock: A:${gr.A}  B:${gr.B}  C:${gr.C}  AMZ:${gr['C (AMZ)']}  D:${gr.D||0}  DMG:${gr.Damaged||0}  DEF:${gr.Defective||0}  RAW:${gr.RAW||0}`;
+        document.getElementById('dealAddStock').textContent = `Total: ${dealSearchSelected.total} units`;
         document.getElementById('dealAddRow').style.display = 'block';
         document.getElementById('dealPriceInput').value = dealSearchSelected.price > 0 ? dealSearchSelected.price : '';
         document.getElementById('dealQtyInput').value = '1';
@@ -2692,11 +2768,14 @@
         dealSelectedGrade = '';
         document.getElementById('dealAddBtn').disabled = true;
         document.getElementById('dealAddPreview').textContent = '';
+        const dealGradeClassMap = { 'A': 'dg-a', 'B': 'dg-b', 'C': 'dg-c', 'C (AMZ)': 'dg-amz', 'D': 'dg-d', 'Damaged': 'dg-dmg', 'Defective': 'dg-def', 'RAW': 'dg-raw' };
         const gradeChips = document.getElementById('dealGradeChips');
         gradeChips.innerHTML = ['A', 'B', 'C', 'C (AMZ)', 'D', 'Damaged', 'Defective', 'RAW'].map(g => {
             const count = gr[g] || 0;
             const disabled = count === 0;
-            return `<div class="deal-chip${disabled ? ' disabled' : ''}" data-grade="${escHtml(g)}" onclick="pickDealGrade(this,'${escJs(g)}')">${escHtml(g)}<span class="dc-count">(${count})</span></div>`;
+            const gcls = dealGradeClassMap[g] || '';
+            const label = g === 'C (AMZ)' ? 'AMZ' : g === 'Damaged' ? 'DMG' : g === 'Defective' ? 'DEF' : g;
+            return `<div class="deal-chip ${gcls}${disabled ? ' disabled' : ''}" data-grade="${escHtml(g)}" onclick="pickDealGrade(this,'${escJs(g)}')">${escHtml(label)}<span class="dc-count">(${count})</span></div>`;
         }).join('');
 
         // Auto-select first available grade
@@ -2750,10 +2829,9 @@
         const colorSelect = document.getElementById('dealColorSelect');
         colorSelect.innerHTML = '<option value="">Any</option>';
         colorKeys.forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.textContent = c; colorSelect.appendChild(opt); });
-        // Update stock hint
         document.getElementById('dealAddStock').textContent = grade
-            ? `Stock for Grade ${grade}: ${gradeTotal} units`
-            : `Stock: A:${group.grades.A}  B:${group.grades.B}  C:${group.grades.C}  AMZ:${group.grades['C (AMZ)']}  D:${group.grades.D||0}  DMG:${group.grades.Damaged||0}  DEF:${group.grades.Defective||0}  RAW:${group.grades.RAW||0}`;
+            ? `Grade ${grade}: ${gradeTotal} units available`
+            : `Total: ${group.total} units`;
     }
 
     function pickDealColor(el, color) {
