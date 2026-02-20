@@ -9,7 +9,7 @@ pip3 install -r requirements.txt
 ./start-production.sh
 ```
 
-Dashboard opens at `data-manager.html`.
+Dashboard opens at `index.html`.
 
 ## Usage
 

@@ -52,11 +52,11 @@ echo ""
 
 # Check frontend
 echo "🌐 Frontend:"
-if [ -f "data-manager.html" ]; then
-    echo "  ✅ data-manager.html exists"
-    echo "  Path: file://$(pwd)/data-manager.html"
+if [ -f "index.html" ]; then
+    echo "  ✅ index.html exists"
+    echo "  Path: file://$(pwd)/index.html"
 else
-    echo "  ❌ data-manager.html not found"
+    echo "  ❌ index.html not found"
 fi
 
 echo ""

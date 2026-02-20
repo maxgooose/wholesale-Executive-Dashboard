@@ -3,7 +3,7 @@
  * Server-backed store with in-memory cache.
  * All data persists in Neon Postgres via /api/model-prices.
  * The public interface is identical to the old IndexedDB version
- * so all consumers (breakdown-modal, room-workflow, excel-export, data-manager) work unchanged.
+ * so all consumers (breakdown-modal, room-workflow, excel-export) work unchanged.
  */
 
 class PricingDatabase {
