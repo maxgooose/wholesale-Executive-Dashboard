@@ -1880,6 +1880,7 @@
 
     let dealItems = new Map();
     let dealPanelOpen = false;
+    let currentDealId = null;
 
     /* ══════════════════════════════════════════════════════════
        INIT
@@ -2413,12 +2414,6 @@
                 model: group.model, storage: group.storage,
                 gradeA: p, gradeB: p, gradeC: p, gradeCAMZ: p, gradeD: 0, defective: 0
             });
-            // Persist to server DB for history
-            fetch('/api/prices', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: group.model, storage: group.storage, price: p })
-            }).catch(e => console.warn('Server price sync failed:', e));
             group.lastPriceUpdate = new Date().toISOString();
             input.classList.add('just-saved');
             setTimeout(() => input.classList.remove('just-saved'), 600);
@@ -2438,7 +2433,11 @@
             }
             updateStats();
             updateFooter();
-        } catch (e) { console.error('Save failed:', e); showToast('Failed to save', 'error'); }
+        } catch (e) {
+            console.error('Save failed:', e);
+            group.price = 0;
+            showToast('Failed to save price: ' + e.message, 'error');
+        }
     }
 
     /* ══════════════════════════════════════════════════════════
@@ -2624,9 +2623,9 @@
     function clearDeal() {
         const keys = Array.from(dealItems.keys());
         dealItems.clear();
+        currentDealId = null;
         renderDealItems();
         updateDealBadge();
-        saveDealState();
         keys.forEach(key => {
             const row = document.querySelector(`tr[data-key="${CSS.escape(key)}"]`);
             if (row) {
@@ -2838,6 +2837,7 @@
     function saveDealState() {
         try {
             const data = {
+                dealId: currentDealId,
                 items: Array.from(dealItems.entries()),
                 name: document.getElementById('dealName').value,
                 buyer: document.getElementById('dealBuyer').value
@@ -2851,6 +2851,7 @@
             const raw = sessionStorage.getItem('pricing_deal_state');
             if (!raw) return;
             const data = JSON.parse(raw);
+            if (data.dealId) currentDealId = data.dealId;
             if (data.items) {
                 dealItems = new Map(data.items);
             }
@@ -2889,13 +2890,31 @@
         renderDealItems();
     }
 
-    function saveDealFinalize() {
-        saveDealOnly();
+    async function saveDealFinalize() {
+        await saveDealOnly();
+        if (currentDealId) {
+            try {
+                await fetch(`/api/deals?id=${currentDealId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'finalized' })
+                });
+            } catch (e) { console.warn('Finalize status update failed:', e); }
+        }
         hideFinalizeView();
     }
 
-    function exportDealFinalize() {
+    async function exportDealFinalize() {
         exportDeal();
+        if (currentDealId) {
+            try {
+                await fetch(`/api/deals?id=${currentDealId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'exported' })
+                });
+            } catch (e) { console.warn('Export status update failed:', e); }
+        }
         hideFinalizeView();
     }
 
@@ -2946,16 +2965,16 @@
         saveDealToServer(dealName, buyer, totalUnits, totalValue);
     }
 
-    function saveDealOnly() {
+    async function saveDealOnly() {
         if (dealItems.size === 0) { showToast('No items in deal', 'error'); return; }
         const dealName = document.getElementById('dealName').value.trim() || 'Untitled Deal';
         const buyer = document.getElementById('dealBuyer').value.trim();
         let totalUnits = 0, totalValue = 0;
         dealItems.forEach(item => { totalUnits += item.offerQty; totalValue += item.offerQty * item.offerPrice; });
-        saveDealToServer(dealName, buyer, totalUnits, totalValue);
+        await saveDealToServer(dealName, buyer, totalUnits, totalValue);
     }
 
-    function saveDealToServer(dealName, buyer, totalUnits, totalValue) {
+    async function saveDealToServer(dealName, buyer, totalUnits, totalValue) {
         const items = Array.from(dealItems.values()).map(item => ({
             model: item.model || '',
             storage: item.storage || '',
@@ -2965,16 +2984,30 @@
             price: item.offerPrice || 0,
             subtotal: (item.offerQty || 0) * (item.offerPrice || 0)
         }));
-        fetch('/api/deals', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ deal_name: dealName, buyer, items, total_units: totalUnits, total_value: totalValue })
-        }).then(r => r.json()).then(data => {
+        const isUpdate = !!currentDealId;
+        const url = isUpdate ? `/api/deals?id=${currentDealId}` : '/api/deals';
+        const method = isUpdate ? 'PUT' : 'POST';
+        try {
+            const r = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deal_name: dealName, buyer, items, total_units: totalUnits, total_value: totalValue })
+            });
+            const data = await r.json();
             if (data.ok) {
-                showToast('Deal saved to history', 'success');
+                if (!isUpdate && data.deal && data.deal.id) {
+                    currentDealId = data.deal.id;
+                    saveDealState();
+                }
+                showToast(isUpdate ? 'Deal updated' : 'Deal saved', 'success');
                 loadPastDeals();
+            } else {
+                showToast('Failed to save deal: ' + (data.error || 'unknown error'), 'error');
             }
-        }).catch(err => console.warn('Deal save failed:', err));
+        } catch (err) {
+            showToast('Failed to save deal', 'error');
+            console.error('Deal save failed:', err);
+        }
     }
 
     /* ══════════════════════════════════════════════════════════
@@ -2989,6 +3022,12 @@
         if (pastDealsOpen) loadPastDeals();
     }
 
+    function dealStatusBadge(status) {
+        const colors = { draft: '#6b7280', finalized: '#059669', exported: '#2563eb', in_pipeline: '#d97706', completed: '#7c3aed' };
+        const color = colors[status] || '#6b7280';
+        return `<span style="font-size:10px;padding:2px 6px;border-radius:4px;background:${color}22;color:${color};font-weight:600;text-transform:uppercase;">${escHtml(status || 'draft')}</span>`;
+    }
+
     function loadPastDeals() {
         const list = document.getElementById('pastDealsList');
         list.innerHTML = '<div class="past-deals-empty">Loading...</div>';
@@ -3000,10 +3039,10 @@
                 return;
             }
             list.innerHTML = deals.map(d => {
-                const date = new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                const date = new Date(d.updated_at || d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                 const value = d.total_value > 0 ? `$${Number(d.total_value).toLocaleString()}` : '$0';
                 return `<div class="past-deal-card" onclick="loadDeal(${d.id})">
-                    <div class="pd-top"><span class="pd-name">${escHtml(d.deal_name)}</span><span class="pd-date">${date}</span></div>
+                    <div class="pd-top"><span class="pd-name">${escHtml(d.deal_name)}</span>${dealStatusBadge(d.status)}<span class="pd-date">${date}</span></div>
                     <div class="pd-meta"><span>${d.total_units} units</span><span>${value}</span>${d.buyer ? `<span>${escHtml(d.buyer)}</span>` : ''}</div>
                     <div class="pd-actions" onclick="event.stopPropagation()">
                         <button class="pd-btn" onclick="loadDeal(${d.id})">Load</button>
@@ -3021,20 +3060,20 @@
         fetch(`/api/deals?id=${id}`).then(r => r.json()).then(data => {
             if (!data.deal) return showToast('Deal not found', 'error');
             const deal = data.deal;
-            // Clear current deal
             dealItems.clear();
-            // Load items
-            const items = typeof deal.items === 'string' ? JSON.parse(deal.items) : deal.items;
+            currentDealId = deal.id;
+            const items = Array.isArray(deal.items) ? deal.items : [];
             items.forEach(item => {
-                const key = `${item.model}|${item.storage}|${item.grade || 'All'}`;
+                const key = `${item.model}|${item.storage}|${item.grade || 'All'}|${item.color || ''}`;
                 dealItems.set(key, {
                     key,
                     model: item.model,
                     storage: item.storage,
                     grade: item.grade || 'All',
+                    color: item.color || '',
                     maxQty: item.qty,
                     offerQty: item.qty,
-                    offerPrice: item.price || 0,
+                    offerPrice: parseFloat(item.price) || 0,
                     grades: {}
                 });
             });
@@ -3044,10 +3083,11 @@
             updateDealBadge();
             saveDealState();
             if (!dealPanelOpen) openDealPanel();
-            showToast(`Loaded "${deal.deal_name}"`, 'success');
+            const statusLabel = deal.status ? ` (${deal.status})` : '';
+            showToast(`Loaded "${deal.deal_name}"${statusLabel}`, 'success');
         }).catch(err => {
             showToast('Failed to load deal', 'error');
-            console.warn(err);
+            console.error(err);
         });
     }
 
@@ -3055,6 +3095,10 @@
         if (!confirm('Delete this deal from history?')) return;
         fetch(`/api/deals?id=${id}`, { method: 'DELETE' }).then(r => r.json()).then(data => {
             if (data.ok) {
+                if (currentDealId === id) {
+                    currentDealId = null;
+                    saveDealState();
+                }
                 showToast('Deal deleted', 'success');
                 loadPastDeals();
                 loadPastDealsModal();
@@ -3091,10 +3135,10 @@
                 return;
             }
             body.innerHTML = deals.map(d => {
-                const date = new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+                const date = new Date(d.updated_at || d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
                 const value = d.total_value > 0 ? '$' + Number(d.total_value).toLocaleString() : '$0';
                 return `<div class="past-deal-card">
-                    <div class="pd-top"><span class="pd-name">${escHtml(d.deal_name)}</span><span class="pd-date">${date}</span></div>
+                    <div class="pd-top"><span class="pd-name">${escHtml(d.deal_name)}</span>${dealStatusBadge(d.status)}<span class="pd-date">${date}</span></div>
                     <div class="pd-meta"><span>${d.total_units} units</span><span>${value}</span>${d.buyer ? `<span>${escHtml(d.buyer)}</span>` : ''}</div>
                     <div class="pd-actions">
                         <button class="pd-btn" onclick="loadDeal(${d.id});closePastDealsModal()">Load</button>
