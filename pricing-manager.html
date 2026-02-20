@@ -2099,23 +2099,28 @@
                 const bd = detectBrand(model);
                 const locs = {};
                 ALLOWED_LOCATIONS.forEach(l => locs[l] = 0);
+                const gradeTemplate = { A: 0, B: 0, 'C (AMZ)': 0, C: 0, D: 0, Damaged: 0, Defective: 0, RAW: 0 };
                 map.set(key, {
                     key, model, storage,
-                    grades: { A: 0, B: 0, 'C (AMZ)': 0, C: 0, D: 0, Damaged: 0, Defective: 0, RAW: 0 },
+                    grades: { ...gradeTemplate },
                     colors: {},
                     colorsByGrade: { A: {}, B: {}, 'C (AMZ)': {}, C: {}, D: {}, Damaged: {}, Defective: {}, RAW: {} },
                     price: 0, lastPriceUpdate: null, total: 0,
                     brand: bd.brand, brandType: bd.type,
                     locations: locs,
+                    gradesByLocation: {},
                     totalCost: 0, costCount: 0
                 });
             }
             const g = map.get(key);
-            if (g.grades.hasOwnProperty(grade)) g.grades[grade]++;
-            else g.grades['C']++;
+            const gradeKey = g.grades.hasOwnProperty(grade) ? grade : 'C';
+            g.grades[gradeKey]++;
+            if (!g.gradesByLocation[location]) {
+                g.gradesByLocation[location] = { A: 0, B: 0, 'C (AMZ)': 0, C: 0, D: 0, Damaged: 0, Defective: 0, RAW: 0 };
+            }
+            g.gradesByLocation[location][gradeKey]++;
             if (color) {
                 g.colors[color] = (g.colors[color] || 0) + 1;
-                const gradeKey = g.grades.hasOwnProperty(grade) ? grade : 'C';
                 if (!g.colorsByGrade[gradeKey]) g.colorsByGrade[gradeKey] = {};
                 g.colorsByGrade[gradeKey][color] = (g.colorsByGrade[gradeKey][color] || 0) + 1;
             }
@@ -2304,7 +2309,8 @@
             }
             if (g.price > 0 && (g.price < priceMin || g.price > priceMax)) return false;
             if (priceMin > 0 && g.price <= 0) return false;
-            if (g.total < qtyMin || g.total > qtyMax) return false;
+            const displayTotal = getDisplayTotal(g);
+            if (displayTotal < qtyMin || displayTotal > qtyMax) return false;
             return true;
         });
 
@@ -2313,7 +2319,7 @@
         const m = dir === 'desc' ? -1 : 1;
         filteredGroups.sort((a, b) => {
             if (field === 'model') return m * a.model.localeCompare(b.model);
-            if (field === 'total') return m * (a.total - b.total);
+            if (field === 'total') return m * (getDisplayTotal(a) - getDisplayTotal(b));
             if (field === 'value') return m * (getRowValue(a) - getRowValue(b));
             if (field === 'status') { const o = { unpriced: 0, stale: 1, priced: 2 }; return (o[getRowStatus(a)]??2) - (o[getRowStatus(b)]??2); }
             return 0;
@@ -2381,6 +2387,25 @@
         onFilterChange();
     }
 
+    function getDisplayTotal(g) {
+        if (activeLocations.size === 0) return g.total;
+        let n = 0;
+        activeLocations.forEach(loc => { n += (g.locations && g.locations[loc]) ? g.locations[loc] : 0; });
+        return n;
+    }
+
+    function getDisplayGrades(g) {
+        if (activeLocations.size === 0) return g.grades;
+        const merged = { A: 0, B: 0, 'C (AMZ)': 0, C: 0, D: 0, Damaged: 0, Defective: 0, RAW: 0 };
+        activeLocations.forEach(loc => {
+            const byLoc = g.gradesByLocation && g.gradesByLocation[loc];
+            if (byLoc) {
+                Object.keys(merged).forEach(grade => { merged[grade] += byLoc[grade] || 0; });
+            }
+        });
+        return merged;
+    }
+
     /* ══════════════════════════════════════════════════════════
        RENDERING — clean table rows
        ══════════════════════════════════════════════════════════ */
@@ -2392,9 +2417,10 @@
             const key = g.key, status = getRowStatus(g), value = getRowValue(g), sel = selectedRows.has(key);
             const bc = brandClass(g.brand);
             const inDeal = dealItems.has(key);
+            const displayGrades = getDisplayGrades(g);
 
-            const grades = gradeOrder.filter(grade => (g.grades[grade] || 0) > 0).map(grade => {
-                const qty = g.grades[grade] || 0;
+            const grades = gradeOrder.filter(grade => (displayGrades[grade] || 0) > 0).map(grade => {
+                const qty = displayGrades[grade] || 0;
                 const label = grade === 'C (AMZ)' ? 'AMZ' : grade === 'Damaged' ? 'DMG' : grade === 'Defective' ? 'DEF' : grade;
                 const cls = gradeClassMap[grade] || '';
                 return `<span class="grade-tag ${cls}"><span class="g-label">${label}</span><span class="g-count">${qty}</span></span>`;
@@ -2409,7 +2435,7 @@
                 </td>
                 <td class="cell-storage">${escHtml(g.storage)}</td>
                 <td><div class="grade-display">${grades}</div></td>
-                <td class="cell-total">${g.total}</td>
+                <td class="cell-total">${getDisplayTotal(g)}</td>
                 <td class="price-cell">
                     <div class="grade-price-input">
                         <span>$</span>
@@ -2719,17 +2745,19 @@
             dd.innerHTML = '<div style="padding:10px;color:var(--text-secondary);font-size:12px;">No results</div>';
         } else {
             dd.innerHTML = results.map(g => {
+                const displayGrades = getDisplayGrades(g);
+                const displayTotal = getDisplayTotal(g);
                 const colorList = Object.keys(g.colors || {}).slice(0, 4).join(', ');
                 const moreColors = Object.keys(g.colors || {}).length > 4 ? ` +${Object.keys(g.colors).length - 4}` : '';
                 const miniGrades = [['A','grade-a'],['B','grade-b'],['C','grade-c'],['AMZ','grade-amz'],['D','grade-d']].map(([label, cls]) => {
                     const key = label === 'AMZ' ? 'C (AMZ)' : label;
-                    const qty = g.grades[key] || 0;
+                    const qty = displayGrades[key] || 0;
                     return qty > 0 ? `<span class="grade-tag ${cls}" style="font-size:9px;padding:1px 5px;">${label} ${qty}</span>` : '';
                 }).filter(Boolean).join('');
                 return `
                 <div class="deal-search-opt" onclick="selectDealModel('${escJs(g.key)}')">
                     <div><div class="ds-name">${escHtml(g.model)}</div><div class="ds-meta">${escHtml(g.storage)} · ${miniGrades}</div>${colorList ? `<div class="ds-colors">${escHtml(colorList)}${moreColors}</div>` : ''}</div>
-                    <div class="ds-stock">${g.total}</div>
+                    <div class="ds-stock">${displayTotal}</div>
                 </div>`;
             }).join('');
         }
@@ -2747,8 +2775,8 @@
         document.getElementById('dealSearchDropdown').classList.remove('visible');
         document.getElementById('dealModelSearch').value = '';
         document.getElementById('dealAddSelected').textContent = `${dealSearchSelected.model} — ${dealSearchSelected.storage}`;
-        const gr = dealSearchSelected.grades;
-        document.getElementById('dealAddStock').textContent = `Total: ${dealSearchSelected.total} units`;
+        const gr = getDisplayGrades(dealSearchSelected);
+        document.getElementById('dealAddStock').textContent = `Total: ${getDisplayTotal(dealSearchSelected)} units`;
         document.getElementById('dealAddRow').style.display = 'block';
         document.getElementById('dealPriceInput').value = dealSearchSelected.price > 0 ? dealSearchSelected.price : '';
         document.getElementById('dealQtyInput').value = '1';
@@ -2806,7 +2834,8 @@
         const colors = (grade && group.colorsByGrade && group.colorsByGrade[grade])
             ? group.colorsByGrade[grade]
             : (group.colors || {});
-        const gradeTotal = grade ? (group.grades[grade] || 0) : group.total;
+        const displayGrades = getDisplayGrades(group);
+        const gradeTotal = grade ? (displayGrades[grade] || 0) : getDisplayTotal(group);
         const colorKeys = Object.keys(colors).sort();
         if (colorKeys.length === 0) {
             colorChips.innerHTML = '<span style="font-size:11px;color:var(--text-muted);">No color data</span>';
@@ -2820,7 +2849,7 @@
         colorKeys.forEach(c => { const opt = document.createElement('option'); opt.value = c; opt.textContent = c; colorSelect.appendChild(opt); });
         document.getElementById('dealAddStock').textContent = grade
             ? `Grade ${grade}: ${gradeTotal} units available`
-            : `Total: ${group.total} units`;
+            : `Total: ${getDisplayTotal(group)} units`;
     }
 
     function pickDealColor(el, color) {
@@ -2862,7 +2891,7 @@
                 brand: dealSearchSelected.brand,
                 grade: grade,
                 color: color,
-                maxQty: dealSearchSelected.grades[grade] || dealSearchSelected.total,
+                maxQty: (getDisplayGrades(dealSearchSelected)[grade] || 0) || getDisplayTotal(dealSearchSelected),
                 offerQty: Math.max(1, qty),
                 offerPrice: price,
                 grades: { ...dealSearchSelected.grades }
