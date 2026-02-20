@@ -2191,6 +2191,7 @@
                     brand: bd.brand, brandType: bd.type,
                     locations: locs,
                     gradesByLocation: {},
+                    colorsByGradeByLocation: {},
                     totalCost: 0, costCount: 0,
                     batteryHealthTotal: 0, batteryHealthCount: 0
                 });
@@ -2206,6 +2207,9 @@
                 g.colors[color] = (g.colors[color] || 0) + 1;
                 if (!g.colorsByGrade[gradeKey]) g.colorsByGrade[gradeKey] = {};
                 g.colorsByGrade[gradeKey][color] = (g.colorsByGrade[gradeKey][color] || 0) + 1;
+                if (!g.colorsByGradeByLocation[location]) g.colorsByGradeByLocation[location] = {};
+                if (!g.colorsByGradeByLocation[location][gradeKey]) g.colorsByGradeByLocation[location][gradeKey] = {};
+                g.colorsByGradeByLocation[location][gradeKey][color] = (g.colorsByGradeByLocation[location][gradeKey][color] || 0) + 1;
             }
             const itemCost = item.cost || (item.total_price_paid ? item.total_price_paid / 100 : 0);
             if (itemCost > 0) { g.totalCost += itemCost; g.costCount++; }
@@ -2247,7 +2251,7 @@
         }
         return 'priced';
     }
-    function getRowValue(group) { return group.total * group.price; }
+    function getRowValue(group) { return getDisplayTotal(group) * group.price; }
 
     /* ══════════════════════════════════════════════════════════
        FILTER POPOVER
@@ -2543,6 +2547,22 @@
         return expandedGrades.has(`${key}|${grade}`);
     }
 
+    function getDisplayColorsByGrade(g, grade) {
+        if (activeLocations.size === 0) {
+            return (g.colorsByGrade && g.colorsByGrade[grade]) ? g.colorsByGrade[grade] : {};
+        }
+        const merged = {};
+        activeLocations.forEach(loc => {
+            const byLoc = g.colorsByGradeByLocation && g.colorsByGradeByLocation[loc] && g.colorsByGradeByLocation[loc][grade];
+            if (byLoc) {
+                Object.keys(byLoc).forEach(color => {
+                    merged[color] = (merged[color] || 0) + (byLoc[color] || 0);
+                });
+            }
+        });
+        return merged;
+    }
+
     /* ══════════════════════════════════════════════════════════
        RENDERING — clean table rows
        ══════════════════════════════════════════════════════════ */
@@ -2602,7 +2622,7 @@
                     const cls = gradeClassMap[grade] || '';
                     const gradeKey = `${key}|${grade}`;
                     const gradeExpanded = isGradeExpanded(key, grade);
-                    const colors = g.colorsByGrade && g.colorsByGrade[grade] ? g.colorsByGrade[grade] : {};
+                    const colors = getDisplayColorsByGrade(g, grade);
                     const hasColors = Object.keys(colors).length > 0;
 
                     rows.push(`
@@ -3032,10 +3052,8 @@
     function renderDealColorChips(group, grade) {
         dealSelectedColor = '';
         const colorChips = document.getElementById('dealColorChips');
-        // Use grade-filtered colors if a grade is selected, otherwise all colors
-        const colors = (grade && group.colorsByGrade && group.colorsByGrade[grade])
-            ? group.colorsByGrade[grade]
-            : (group.colors || {});
+        // Use grade-filtered colors (respects location filter)
+        const colors = grade ? getDisplayColorsByGrade(group, grade) : (group.colors || {});
         const displayGrades = getDisplayGrades(group);
         const gradeTotal = grade ? (displayGrades[grade] || 0) : getDisplayTotal(group);
         const colorKeys = Object.keys(colors).sort();
@@ -3618,22 +3636,24 @@
         const wsData = [];
         wsData.push(['UNIVERSAL CELLULAR — Full Catalog']);
         wsData.push(['Date', dateStr]);
-        wsData.push(['Items', rows.length, 'Total Units', rows.reduce((s, g) => s + g.total, 0)]);
+        wsData.push(['Items', rows.length, 'Total Units', rows.reduce((s, g) => s + getDisplayTotal(g), 0)]);
         wsData.push([]);
         wsData.push(['MODEL', 'STORAGE', 'BRAND', 'A', 'B', 'C (AMZ)', 'C', 'D', 'DAMAGED', 'DEFECTIVE', 'RAW', 'TOTAL', 'PRICE', 'AVG COST', 'VALUE',
             'Ready Room', 'Processing', 'Receiving', 'Damaged', 'Locked', 'Inbound']);
 
         let totalUnits = 0, totalValue = 0;
         rows.forEach(g => {
+            const dispGrades = getDisplayGrades(g);
+            const dispTotal = getDisplayTotal(g);
             const val = getRowValue(g);
-            totalUnits += g.total;
+            totalUnits += dispTotal;
             totalValue += val;
             const loc = g.locations || {};
             const avgCost = g.costCount > 0 ? Math.round(g.totalCost / g.costCount) : '';
             wsData.push([
                 g.model, g.storage, g.brand,
-                g.grades.A || '', g.grades.B || '', g.grades['C (AMZ)'] || '', g.grades.C || '', g.grades.D || '', g.grades.Damaged || '', g.grades.Defective || '', g.grades.RAW || '',
-                g.total, g.price > 0 ? g.price : '', avgCost, val > 0 ? val : '',
+                dispGrades.A || '', dispGrades.B || '', dispGrades['C (AMZ)'] || '', dispGrades.C || '', dispGrades.D || '', dispGrades.Damaged || '', dispGrades.Defective || '', dispGrades.RAW || '',
+                dispTotal, g.price > 0 ? g.price : '', avgCost, val > 0 ? val : '',
                 loc['Ready Room'] || '', loc['Processing'] || '', loc['Receiving'] || '',
                 loc['Damaged'] || '', loc['Locked'] || '', loc['Inbound'] || ''
             ]);
@@ -3658,7 +3678,7 @@
     function openExportModal() {
         const rows = getExportRows();
         let units = 0, val = 0;
-        rows.forEach(g => { units += g.total; val += getRowValue(g); });
+        rows.forEach(g => { units += getDisplayTotal(g); val += getRowValue(g); });
         document.getElementById('previewModels').textContent = rows.length.toLocaleString();
         document.getElementById('previewUnits').textContent = units.toLocaleString();
         document.getElementById('previewValue').textContent = '$' + val.toLocaleString();
@@ -3676,7 +3696,7 @@
 
     function getExportRows() {
         if (selectedRows.size > 0) return inventoryGroups.filter(g => selectedRows.has(g.key));
-        return inventoryGroups;
+        return filteredGroups.length > 0 ? filteredGroups : inventoryGroups;
     }
 
     function downloadExport() {
@@ -3695,13 +3715,15 @@
         csv.push(csvLine(['MODEL', 'STORAGE', 'A', 'B', 'C (AMZ)', 'C', 'D', 'DAMAGED', 'DEFECTIVE', 'RAW', 'TOTAL', 'PRICE', 'VALUE']));
         let totalUnits = 0, totalValue = 0;
         rows.forEach(g => {
+            const dispGrades = getDisplayGrades(g);
+            const dispTotal = getDisplayTotal(g);
             const val = getRowValue(g);
-            totalUnits += g.total;
+            totalUnits += dispTotal;
             totalValue += val;
             csv.push(csvLine([
                 g.model, g.storage,
-                d(g.grades.A), d(g.grades.B), d(g.grades['C (AMZ)']), d(g.grades.C), d(g.grades.D), d(g.grades.Damaged), d(g.grades.Defective), d(g.grades.RAW),
-                g.total, g.price > 0 ? g.price : '', val > 0 ? val : ''
+                d(dispGrades.A), d(dispGrades.B), d(dispGrades['C (AMZ)']), d(dispGrades.C), d(dispGrades.D), d(dispGrades.Damaged), d(dispGrades.Defective), d(dispGrades.RAW),
+                dispTotal, g.price > 0 ? g.price : '', val > 0 ? val : ''
             ]));
         });
         csv.push('');
