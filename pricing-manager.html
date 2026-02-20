@@ -2788,34 +2788,20 @@
        ══════════════════════════════════════════════════════════ */
     function openProceedModal() {
         // #region agent log
-        console.log('[DEBUG] openProceedModal CALLED, dealItems.size=', dealItems.size);
+        alert('DEBUG: openProceedModal called! dealItems.size=' + dealItems.size);
         // #endregion
         try {
-            if (dealItems.size === 0) {
-                // #region agent log
-                console.log('[DEBUG] EARLY RETURN - dealItems is empty');
-                // #endregion
-                showToast('No items in deal', 'error'); return;
-            }
+            if (dealItems.size === 0) { showToast('No items in deal', 'error'); return; }
             let totalUnits = 0, totalValue = 0;
             dealItems.forEach(item => { totalUnits += item.offerQty; totalValue += item.offerQty * (item.offerPrice || 0); });
             document.getElementById('proceedItems').textContent = dealItems.size;
             document.getElementById('proceedUnits').textContent = totalUnits.toLocaleString();
             document.getElementById('proceedValue').textContent = '$' + totalValue.toLocaleString();
             const modal = document.getElementById('proceedModal');
-            // #region agent log
-            console.log('[DEBUG] Modal element found:', !!modal, 'current display:', modal ? modal.style.display : 'NULL');
-            // #endregion
             modal.style.cssText = 'display:flex !important; z-index:10000 !important; position:fixed; inset:0; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:24px;';
             modal.classList.add('visible');
-            // #region agent log
-            console.log('[DEBUG] Modal SHOWN, computed display:', getComputedStyle(modal).display, 'z-index:', getComputedStyle(modal).zIndex);
-            // #endregion
             setTimeout(() => { const dn = document.getElementById('dealName'); if (dn) dn.focus(); }, 100);
         } catch (e) {
-            // #region agent log
-            console.error('[DEBUG] openProceedModal ERROR:', e.message, e.stack);
-            // #endregion
             console.error('openProceedModal error:', e);
             alert('Error opening deal modal: ' + e.message);
         }
